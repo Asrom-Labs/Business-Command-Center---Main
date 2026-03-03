@@ -1,0 +1,63 @@
+'use strict';
+
+/**
+ * Calculate current stock on hand for a product+variant+location combination.
+ */
+const getStockOnHand = async (client, productId, variantId, locationId) => {
+  const result = await client.query(
+    `SELECT COALESCE(SUM(change_qty), 0)::INTEGER AS stock
+     FROM stock_ledger
+     WHERE product_id = $1
+       AND ($2::uuid IS NULL AND variant_id IS NULL OR variant_id = $2)
+       AND location_id = $3`,
+    [productId, variantId || null, locationId]
+  );
+  return result.rows[0].stock;
+};
+
+/**
+ * Insert a stock ledger entry after validating no negative stock.
+ * For negative movements, checks current stock first.
+ * @throws {Error} with errorCode BUSINESS_RULE if stock would go negative
+ */
+const insertLedgerEntry = async (client, entry) => {
+  const { productId, variantId, locationId, changeQty, movementType, referenceId, note, createdBy } = entry;
+
+  if (changeQty < 0) {
+    const current = await getStockOnHand(client, productId, variantId, locationId);
+    if (current + changeQty < 0) {
+      const err = new Error(
+        `Insufficient stock. Available: ${current}, Requested: ${Math.abs(changeQty)}`
+      );
+      err.isAppError = true;
+      err.statusCode = 422;
+      err.errorCode = 'BUSINESS_RULE';
+      throw err;
+    }
+  }
+
+  await client.query(
+    `INSERT INTO stock_ledger (product_id, variant_id, location_id, change_qty, movement_type, reference_id, note, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [productId, variantId || null, locationId, changeQty, movementType, referenceId || null, note || null, createdBy]
+  );
+};
+
+/**
+ * Get full stock summary for all products in an organization.
+ */
+const getOrgStockSummary = async (client, orgId) => {
+  const result = await client.query(
+    `SELECT sl.product_id, sl.variant_id, sl.location_id,
+            SUM(sl.change_qty)::INTEGER AS stock_on_hand
+     FROM stock_ledger sl
+     JOIN products p ON p.id = sl.product_id
+     WHERE p.organization_id = $1
+     GROUP BY sl.product_id, sl.variant_id, sl.location_id
+     HAVING SUM(sl.change_qty) > 0`,
+    [orgId]
+  );
+  return result.rows;
+};
+
+module.exports = { getStockOnHand, insertLedgerEntry, getOrgStockSummary };
