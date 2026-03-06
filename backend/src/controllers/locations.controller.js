@@ -40,7 +40,7 @@ const create = async (req, res, next) => {
   try {
     const { branch_id, name, type } = req.body;
     const branchCheck = await pool.query(`SELECT id FROM branches WHERE id = $1 AND organization_id = $2 AND active = TRUE`, [branch_id, req.user.org_id]);
-    if (!branchCheck.rows.length) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Branch not found in your organization' });
+    if (!branchCheck.rows.length) return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Branch not found in your organization' });
 
     const result = await pool.query(
       `INSERT INTO locations (branch_id, name, type) VALUES ($1, $2, $3) RETURNING *`,
@@ -57,7 +57,7 @@ const getOne = async (req, res, next) => {
       `SELECT l.*, b.name AS branch_name FROM locations l JOIN branches b ON b.id = l.branch_id WHERE l.id = $1 AND b.organization_id = $2 AND l.active = TRUE`,
       [req.params.id, req.user.org_id]
     );
-    if (!result.rows.length) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Location not found' });
+    if (!result.rows.length) return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Location not found' });
     return res.json({ success: true, data: result.rows[0], message: 'Success' });
   } catch (err) { next(err); }
 };
@@ -68,7 +68,7 @@ const update = async (req, res, next) => {
       `SELECT l.id FROM locations l JOIN branches b ON b.id = l.branch_id WHERE l.id = $1 AND b.organization_id = $2 AND l.active = TRUE`,
       [req.params.id, req.user.org_id]
     );
-    if (!check.rows.length) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Location not found' });
+    if (!check.rows.length) return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Location not found' });
 
     const { name, type } = req.body;
     const updates = []; const values = []; let idx = 1;
@@ -90,7 +90,7 @@ const remove = async (req, res, next) => {
       `SELECT l.id FROM locations l JOIN branches b ON b.id = l.branch_id WHERE l.id = $1 AND b.organization_id = $2 AND l.active = TRUE`,
       [req.params.id, req.user.org_id]
     );
-    if (!check.rows.length) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Location not found' });
+    if (!check.rows.length) return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Location not found' });
     await pool.query(`UPDATE locations SET active = FALSE, updated_at = NOW() WHERE id = $1`, [req.params.id]);
     await auditService.log({ client: pool, orgId: req.user.org_id, userId: req.user.id, action: 'delete', entity: 'locations', entityId: req.params.id });
     return res.json({ success: true, data: null, message: 'Location deactivated' });

@@ -90,7 +90,7 @@ const getOne = async (req, res, next) => {
        WHERE u.id = $1 AND u.organization_id = $2 AND u.active = TRUE`,
       [req.params.id, req.user.org_id]
     );
-    if (!result.rows.length) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'User not found' });
+    if (!result.rows.length) return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'User not found' });
     return res.json({ success: true, data: result.rows[0], message: 'Success' });
   } catch (err) { next(err); }
 };

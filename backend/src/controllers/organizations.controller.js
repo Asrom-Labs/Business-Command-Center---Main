@@ -10,7 +10,7 @@ const getMyOrg = async (req, res, next) => {
       [req.user.org_id]
     );
     if (!result.rows.length) {
-      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Organization not found' });
+      return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Organization not found' });
     }
     return res.status(200).json({ success: true, data: result.rows[0], message: 'Success' });
   } catch (err) {

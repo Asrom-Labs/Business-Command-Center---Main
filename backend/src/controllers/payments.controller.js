@@ -12,7 +12,7 @@ const listForOrder = async (req, res, next) => {
       `SELECT id, total, amount_paid FROM sales_orders WHERE id = $1 AND organization_id = $2`, [orderId, orgId]
     );
     if (!soChk.rows.length) {
-      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Sales order not found' });
+      return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Sales order not found' });
     }
 
     const result = await pool.query(
@@ -114,7 +114,7 @@ const getOne = async (req, res, next) => {
       [req.params.id, orgId]
     );
     if (!result.rows.length) {
-      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Payment not found' });
+      return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Payment not found' });
     }
     return res.json({ success: true, data: result.rows[0], message: 'Success' });
   } catch (err) { next(err); }

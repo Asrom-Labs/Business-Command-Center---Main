@@ -12,7 +12,7 @@ const list = async (req, res, next) => {
       `SELECT id FROM products WHERE id = $1 AND organization_id = $2`, [productId, orgId]
     );
     if (!prodChk.rows.length) {
-      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Product not found' });
+      return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Product not found' });
     }
 
     const result = await pool.query(
@@ -32,7 +32,7 @@ const create = async (req, res, next) => {
       `SELECT id FROM products WHERE id = $1 AND organization_id = $2`, [productId, orgId]
     );
     if (!prodChk.rows.length) {
-      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Product not found' });
+      return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Product not found' });
     }
 
     const result = await pool.query(
@@ -57,7 +57,7 @@ const getOne = async (req, res, next) => {
       [id, productId, orgId]
     );
     if (!result.rows.length) {
-      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Variant not found' });
+      return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Variant not found' });
     }
     return res.json({ success: true, data: result.rows[0], message: 'Success' });
   } catch (err) { next(err); }
@@ -75,7 +75,7 @@ const update = async (req, res, next) => {
       [id, productId, orgId]
     );
     if (!chk.rows.length) {
-      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Variant not found' });
+      return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Variant not found' });
     }
 
     const allowedFields = ['name', 'sku', 'barcode', 'price', 'cost', 'active'];
@@ -112,7 +112,7 @@ const remove = async (req, res, next) => {
       [id, productId, orgId]
     );
     if (!chk.rows.length) {
-      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Variant not found' });
+      return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Variant not found' });
     }
 
     await pool.query(`UPDATE product_variants SET active = FALSE, updated_at = NOW() WHERE id = $1`, [id]);

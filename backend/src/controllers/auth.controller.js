@@ -150,6 +150,10 @@ const login = async (req, res, next) => {
     const genericError = { success: false, data: null, error: 'UNAUTHENTICATED', message: 'Invalid credentials' };
 
     if (checkLockout(email)) {
+      // user has not been fetched yet at this point — use null for all user fields
+      try {
+        await auditService.log({ client: pool, orgId: null, userId: null, action: 'login_failed', entity: 'users', entityId: null });
+      } catch (_) {}
       return res.status(429).json({ success: false, data: null, error: 'RATE_LIMITED', message: 'Too many failed login attempts. Try again later.' });
     }
 

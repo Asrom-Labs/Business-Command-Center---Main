@@ -46,7 +46,7 @@ const getOne = async (req, res, next) => {
       `SELECT * FROM customers WHERE id = $1 AND organization_id = $2 AND active = TRUE`, [req.params.id, req.user.org_id]
     );
     if (!custRes.rows.length) {
-      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Customer not found' });
+      return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Customer not found' });
     }
     const customer = custRes.rows[0];
 
@@ -67,7 +67,7 @@ const update = async (req, res, next) => {
       `SELECT id FROM customers WHERE id = $1 AND organization_id = $2 AND active = TRUE`, [req.params.id, req.user.org_id]
     );
     if (!chk.rows.length) {
-      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Customer not found' });
+      return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Customer not found' });
     }
 
     const allowedFields = ['name', 'phone', 'email', 'address'];
@@ -96,7 +96,7 @@ const remove = async (req, res, next) => {
       `SELECT id FROM customers WHERE id = $1 AND organization_id = $2 AND active = TRUE`, [req.params.id, req.user.org_id]
     );
     if (!chk.rows.length) {
-      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Customer not found' });
+      return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Customer not found' });
     }
     await pool.query(`UPDATE customers SET active = FALSE, updated_at = NOW() WHERE id = $1`, [req.params.id]);
     await auditService.log({ client: pool, orgId: req.user.org_id, userId: req.user.id, action: 'delete', entity: 'customers', entityId: req.params.id });
@@ -111,7 +111,7 @@ const addNote = async (req, res, next) => {
       `SELECT id FROM customers WHERE id = $1 AND organization_id = $2`, [req.params.id, req.user.org_id]
     );
     if (!chk.rows.length) {
-      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Customer not found' });
+      return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Customer not found' });
     }
     const result = await pool.query(
       `INSERT INTO customer_notes (customer_id, note, created_by) VALUES ($1, $2, $3) RETURNING *`,

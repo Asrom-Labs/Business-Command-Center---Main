@@ -48,7 +48,7 @@ const getOne = async (req, res, next) => {
       `SELECT * FROM branches WHERE id = $1 AND organization_id = $2 AND active = TRUE`,
       [req.params.id, req.user.org_id]
     );
-    if (!result.rows.length) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Branch not found' });
+    if (!result.rows.length) return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Branch not found' });
     return res.json({ success: true, data: result.rows[0], message: 'Success' });
   } catch (err) { next(err); }
 };
@@ -56,7 +56,7 @@ const getOne = async (req, res, next) => {
 const update = async (req, res, next) => {
   try {
     const existing = await pool.query(`SELECT id FROM branches WHERE id = $1 AND organization_id = $2 AND active = TRUE`, [req.params.id, req.user.org_id]);
-    if (!existing.rows.length) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Branch not found' });
+    if (!existing.rows.length) return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Branch not found' });
 
     const { name, city } = req.body;
     const updates = []; const values = []; let idx = 1;
@@ -75,7 +75,7 @@ const update = async (req, res, next) => {
 const remove = async (req, res, next) => {
   try {
     const existing = await pool.query(`SELECT id FROM branches WHERE id = $1 AND organization_id = $2`, [req.params.id, req.user.org_id]);
-    if (!existing.rows.length) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Branch not found' });
+    if (!existing.rows.length) return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Branch not found' });
     await pool.query(`UPDATE branches SET active = FALSE, updated_at = NOW() WHERE id = $1`, [req.params.id]);
     await auditService.log({ client: pool, orgId: req.user.org_id, userId: req.user.id, action: 'delete', entity: 'branches', entityId: req.params.id });
     return res.json({ success: true, data: null, message: 'Branch deactivated' });

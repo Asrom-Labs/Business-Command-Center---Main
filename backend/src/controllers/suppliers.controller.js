@@ -46,7 +46,7 @@ const getOne = async (req, res, next) => {
       `SELECT * FROM suppliers WHERE id = $1 AND organization_id = $2 AND active = TRUE`, [req.params.id, req.user.org_id]
     );
     if (!result.rows.length) {
-      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Supplier not found' });
+      return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Supplier not found' });
     }
     return res.json({ success: true, data: result.rows[0], message: 'Success' });
   } catch (err) { next(err); }
@@ -58,7 +58,7 @@ const update = async (req, res, next) => {
       `SELECT id FROM suppliers WHERE id = $1 AND organization_id = $2 AND active = TRUE`, [req.params.id, req.user.org_id]
     );
     if (!chk.rows.length) {
-      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Supplier not found' });
+      return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Supplier not found' });
     }
 
     const allowedFields = ['name', 'phone', 'email', 'address', 'contact_person'];
@@ -84,10 +84,10 @@ const update = async (req, res, next) => {
 const remove = async (req, res, next) => {
   try {
     const chk = await pool.query(
-      `SELECT id FROM suppliers WHERE id = $1 AND organization_id = $2`, [req.params.id, req.user.org_id]
+      `SELECT id FROM suppliers WHERE id = $1 AND organization_id = $2 AND active = TRUE`, [req.params.id, req.user.org_id]
     );
     if (!chk.rows.length) {
-      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Supplier not found' });
+      return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Supplier not found' });
     }
     await pool.query(`UPDATE suppliers SET active = FALSE, updated_at = NOW() WHERE id = $1`, [req.params.id]);
     await auditService.log({ client: pool, orgId: req.user.org_id, userId: req.user.id, action: 'delete', entity: 'suppliers', entityId: req.params.id });

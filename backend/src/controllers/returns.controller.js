@@ -150,7 +150,7 @@ const getOne = async (req, res, next) => {
       [id, orgId]
     );
     if (!returnRes.rows.length) {
-      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Return not found' });
+      return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Return not found' });
     }
 
     const itemsRes = await pool.query(

@@ -173,7 +173,7 @@ const shutdown = (signal) => {
   setTimeout(() => {
     console.error('Forced shutdown after 10s timeout.');
     process.exit(1);
-  }, 10000);
+  }, 10000).unref();
 };
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));

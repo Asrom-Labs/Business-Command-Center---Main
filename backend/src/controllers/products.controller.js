@@ -50,12 +50,12 @@ const create = async (req, res, next) => {
 
     if (category_id) {
       const catChk = await pool.query(`SELECT id FROM categories WHERE id = $1 AND organization_id = $2`, [category_id, req.user.org_id]);
-      if (!catChk.rows.length) return res.status(422).json({ success: false, error: 'VALIDATION_ERROR', message: 'category_id does not belong to your organization' });
+      if (!catChk.rows.length) return res.status(422).json({ success: false, data: null, error: 'VALIDATION_ERROR', message: 'category_id does not belong to your organization' });
     }
 
     if (unit_id) {
       const unitChk = await pool.query(`SELECT id FROM units WHERE id = $1 AND (organization_id = $2 OR organization_id IS NULL)`, [unit_id, req.user.org_id]);
-      if (!unitChk.rows.length) return res.status(422).json({ success: false, error: 'VALIDATION_ERROR', message: 'unit_id is not valid' });
+      if (!unitChk.rows.length) return res.status(422).json({ success: false, data: null, error: 'VALIDATION_ERROR', message: 'unit_id is not valid' });
     }
 
     const product = await withTransaction(async (client) => {
@@ -88,7 +88,7 @@ const getOne = async (req, res, next) => {
        WHERE p.id = $1 AND p.organization_id = $2`,
       [id, orgId]
     );
-    if (!prodRes.rows.length) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Product not found' });
+    if (!prodRes.rows.length) return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Product not found' });
 
     const product = prodRes.rows[0];
 
@@ -122,16 +122,16 @@ const update = async (req, res, next) => {
     const orgId = req.user.org_id;
 
     const existing = await pool.query(`SELECT id FROM products WHERE id = $1 AND organization_id = $2`, [id, orgId]);
-    if (!existing.rows.length) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Product not found' });
+    if (!existing.rows.length) return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Product not found' });
 
     if (req.body.category_id) {
       const catChk = await pool.query(`SELECT id FROM categories WHERE id = $1 AND organization_id = $2`, [req.body.category_id, orgId]);
-      if (!catChk.rows.length) return res.status(422).json({ success: false, error: 'VALIDATION_ERROR', message: 'category_id does not belong to your organization' });
+      if (!catChk.rows.length) return res.status(422).json({ success: false, data: null, error: 'VALIDATION_ERROR', message: 'category_id does not belong to your organization' });
     }
 
     if (req.body.unit_id) {
       const unitChk = await pool.query(`SELECT id FROM units WHERE id = $1 AND (organization_id = $2 OR organization_id IS NULL)`, [req.body.unit_id, orgId]);
-      if (!unitChk.rows.length) return res.status(422).json({ success: false, error: 'VALIDATION_ERROR', message: 'unit_id is not valid' });
+      if (!unitChk.rows.length) return res.status(422).json({ success: false, data: null, error: 'VALIDATION_ERROR', message: 'unit_id is not valid' });
     }
 
     const allowedFields = ['name', 'sku', 'barcode', 'price', 'cost', 'low_stock_threshold', 'category_id', 'unit_id', 'active'];
@@ -157,7 +157,7 @@ const remove = async (req, res, next) => {
   try {
     const { id } = req.params;
     const existing = await pool.query(`SELECT id, active FROM products WHERE id = $1 AND organization_id = $2`, [id, req.user.org_id]);
-    if (!existing.rows.length) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Product not found' });
+    if (!existing.rows.length) return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Product not found' });
 
     const result = await pool.query(`UPDATE products SET active = FALSE, updated_at = NOW() WHERE id = $1 RETURNING *`, [id]);
     await auditService.log({ client: pool, orgId: req.user.org_id, userId: req.user.id, action: 'delete', entity: 'products', entityId: id });

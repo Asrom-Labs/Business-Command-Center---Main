@@ -32,7 +32,7 @@ const create = async (req, res, next) => {
 const getOne = async (req, res, next) => {
   try {
     const r = await pool.query(`SELECT * FROM categories WHERE id = $1 AND organization_id = $2`, [req.params.id, req.user.org_id]);
-    if (!r.rows.length) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Category not found' });
+    if (!r.rows.length) return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Category not found' });
     return res.json({ success: true, data: r.rows[0], message: 'Success' });
   } catch (err) { next(err); }
 };
@@ -40,7 +40,7 @@ const getOne = async (req, res, next) => {
 const update = async (req, res, next) => {
   try {
     const chk = await pool.query(`SELECT id FROM categories WHERE id = $1 AND organization_id = $2`, [req.params.id, req.user.org_id]);
-    if (!chk.rows.length) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Category not found' });
+    if (!chk.rows.length) return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Category not found' });
     const r = await pool.query(`UPDATE categories SET name = $1, updated_at = NOW() WHERE id = $2 RETURNING *`, [req.body.name.trim(), req.params.id]);
     await auditService.log({ client: pool, orgId: req.user.org_id, userId: req.user.id, action: 'update', entity: 'categories', entityId: req.params.id });
     return res.json({ success: true, data: r.rows[0], message: 'Category updated' });
@@ -50,7 +50,7 @@ const update = async (req, res, next) => {
 const remove = async (req, res, next) => {
   try {
     const chk = await pool.query(`SELECT id FROM categories WHERE id = $1 AND organization_id = $2`, [req.params.id, req.user.org_id]);
-    if (!chk.rows.length) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Category not found' });
+    if (!chk.rows.length) return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Category not found' });
     await pool.query(`DELETE FROM categories WHERE id = $1`, [req.params.id]);
     await auditService.log({ client: pool, orgId: req.user.org_id, userId: req.user.id, action: 'delete', entity: 'categories', entityId: req.params.id });
     return res.json({ success: true, data: null, message: 'Category deleted' });

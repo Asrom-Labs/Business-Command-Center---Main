@@ -32,7 +32,7 @@ const getOneCategory = async (req, res, next) => {
       [req.params.id, req.user.org_id]
     );
     if (!result.rows.length) {
-      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Category not found' });
+      return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Category not found' });
     }
     return res.json({ success: true, data: result.rows[0], message: 'Success' });
   } catch (err) { next(err); }
@@ -45,7 +45,7 @@ const updateCategory = async (req, res, next) => {
       [req.params.id, req.user.org_id]
     );
     if (!chk.rows.length) {
-      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Category not found' });
+      return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Category not found' });
     }
     const { name } = req.body;
     if (!name || !name.trim()) {
@@ -66,7 +66,7 @@ const deleteCategory = async (req, res, next) => {
       `SELECT id FROM expense_categories WHERE id = $1 AND organization_id = $2`, [req.params.id, req.user.org_id]
     );
     if (!chk.rows.length) {
-      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Category not found' });
+      return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Category not found' });
     }
     await pool.query(`DELETE FROM expense_categories WHERE id = $1`, [req.params.id]);
     await auditService.log({ client: pool, orgId: req.user.org_id, userId: req.user.id, action: 'delete', entity: 'expense_categories', entityId: req.params.id });
@@ -148,7 +148,7 @@ const getOne = async (req, res, next) => {
       [req.params.id, req.user.org_id]
     );
     if (!result.rows.length) {
-      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Expense not found' });
+      return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Expense not found' });
     }
     return res.json({ success: true, data: result.rows[0], message: 'Success' });
   } catch (err) { next(err); }
@@ -160,7 +160,7 @@ const update = async (req, res, next) => {
       `SELECT id FROM expenses WHERE id = $1 AND organization_id = $2`, [req.params.id, req.user.org_id]
     );
     if (!chk.rows.length) {
-      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Expense not found' });
+      return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Expense not found' });
     }
 
     if (req.body.category_id) {
@@ -199,7 +199,7 @@ const remove = async (req, res, next) => {
       `SELECT id FROM expenses WHERE id = $1 AND organization_id = $2`, [req.params.id, req.user.org_id]
     );
     if (!chk.rows.length) {
-      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Expense not found' });
+      return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Expense not found' });
     }
     await pool.query(`DELETE FROM expenses WHERE id = $1`, [req.params.id]);
     await auditService.log({ client: pool, orgId: req.user.org_id, userId: req.user.id, action: 'delete', entity: 'expenses', entityId: req.params.id });
