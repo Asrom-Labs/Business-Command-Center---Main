@@ -20,7 +20,7 @@ const getStock = async (req, res, next) => {
     if (location_id) { w += ` AND sl.location_id = $${idx++}`; vals.push(location_id); }
     if (product_id) { w += ` AND sl.product_id = $${idx++}`; vals.push(product_id); }
 
-    let havingClause = lowStock ? 'HAVING SUM(sl.change_qty) <= p.low_stock_threshold' : '';
+    let havingClause = lowStock ? 'HAVING SUM(sl.quantity_change) <= p.low_stock_threshold' : '';
 
     const result = await pool.query(
       `SELECT sl.product_id, sl.variant_id, sl.location_id,
@@ -28,7 +28,7 @@ const getStock = async (req, res, next) => {
               pv.name AS variant_name,
               l.name AS location_name,
               b.name AS branch_name,
-              SUM(sl.change_qty)::INTEGER AS stock_on_hand
+              SUM(sl.quantity_change)::INTEGER AS stock_on_hand
        FROM stock_ledger sl
        JOIN products p ON p.id = sl.product_id
        LEFT JOIN product_variants pv ON pv.id = sl.variant_id
@@ -95,7 +95,7 @@ const getLedger = async (req, res, next) => {
  */
 const adjust = async (req, res, next) => {
   try {
-    const { product_id, variant_id = null, location_id, change_qty, note = null } = req.body;
+    const { product_id, variant_id = null, location_id, quantity_change, note = null } = req.body;
     const orgId = req.user.org_id;
 
     // Validate product belongs to org
@@ -119,7 +119,7 @@ const adjust = async (req, res, next) => {
       productId: product_id,
       variantId: variant_id,
       locationId: location_id,
-      changeQty: change_qty,
+      changeQty: quantity_change,
       movementType: 'adjustment',
       referenceId: null,
       note,
@@ -129,7 +129,7 @@ const adjust = async (req, res, next) => {
     await auditService.log({
       client: pool, orgId, userId: req.user.id,
       action: 'adjustment', entity: 'stock_ledger', entityId: product_id,
-      changes: { product_id, location_id, change_qty },
+      changes: { product_id, location_id, quantity_change },
     });
 
     const newStock = await stockService.getStockOnHand(pool, product_id, variant_id, location_id);

@@ -16,10 +16,9 @@ const list = async (req, res, next) => {
 
     vals.push(limit, offset);
     const dataRes = await pool.query(
-      `SELECT r.*, rr.reason AS reason_text, so.id AS sales_order_id, u.name AS created_by_name
+      `SELECT r.*, rr.reason AS reason_name, u.name AS created_by_name
        FROM returns r
        LEFT JOIN return_reasons rr ON rr.id = r.reason_id
-       LEFT JOIN sales_orders so ON so.id = r.sales_order_id
        LEFT JOIN users u ON u.id = r.created_by
        WHERE r.organization_id = $1
        ORDER BY r.created_at DESC LIMIT $2 OFFSET $3`,
@@ -62,13 +61,13 @@ const create = async (req, res, next) => {
           `SELECT * FROM sales_order_items WHERE id = $1 AND sales_order_id = $2`, [sales_order_item_id, sales_order_id]
         );
         if (!soiRes.rows.length) {
-          const err = new Error(`Sales order item ${sales_order_item_id} not found`);
+          const err = new Error('Sales order item not found on this order');
           err.isAppError = true; err.statusCode = 422; err.errorCode = 'VALIDATION_ERROR'; throw err;
         }
         const soi = soiRes.rows[0];
 
         if (quantity_returned > soi.quantity) {
-          const err = new Error(`Cannot return more than ordered quantity for item ${sales_order_item_id}`);
+          const err = new Error('Return quantity exceeds the original ordered quantity');
           err.isAppError = true; err.statusCode = 422; err.errorCode = 'BUSINESS_RULE'; throw err;
         }
 
@@ -77,7 +76,7 @@ const create = async (req, res, next) => {
       }
 
       const returnRes = await client.query(
-        `INSERT INTO returns (organization_id, sales_order_id, reason_id, total_refund, note, created_by)
+        `INSERT INTO returns (organization_id, sales_order_id, reason_id, total_refund_amount, note, created_by)
          VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
         [orgId, sales_order_id, reason_id, totalRefund, note, req.user.id]
       );
@@ -117,7 +116,7 @@ const getOne = async (req, res, next) => {
     const orgId = req.user.org_id;
 
     const returnRes = await pool.query(
-      `SELECT r.*, rr.reason AS reason_text, u.name AS created_by_name
+      `SELECT r.*, rr.reason AS reason_name, u.name AS created_by_name
        FROM returns r
        LEFT JOIN return_reasons rr ON rr.id = r.reason_id
        LEFT JOIN users u ON u.id = r.created_by

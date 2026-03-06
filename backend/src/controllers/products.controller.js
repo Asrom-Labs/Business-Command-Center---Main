@@ -1,6 +1,6 @@
 'use strict';
 
-const { pool } = require('../db/pool');
+const { pool, withTransaction } = require('../db/pool');
 const auditService = require('../services/audit.service');
 
 const list = async (req, res, next) => {
@@ -53,14 +53,17 @@ const create = async (req, res, next) => {
       if (!catChk.rows.length) return res.status(422).json({ success: false, error: 'VALIDATION_ERROR', message: 'category_id does not belong to your organization' });
     }
 
-    const result = await pool.query(
-      `INSERT INTO products (organization_id, category_id, unit_id, name, sku, barcode, price, cost, low_stock_threshold)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [req.user.org_id, category_id, unit_id, name.trim(), sku, barcode, price, cost, low_stock_threshold]
-    );
+    const product = await withTransaction(async (client) => {
+      const result = await client.query(
+        `INSERT INTO products (organization_id, category_id, unit_id, name, sku, barcode, price, cost, low_stock_threshold)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+        [req.user.org_id, category_id, unit_id, name.trim(), sku, barcode, price, cost, low_stock_threshold]
+      );
+      await auditService.log({ client, orgId: req.user.org_id, userId: req.user.id, action: 'create', entity: 'products', entityId: result.rows[0].id });
+      return result.rows[0];
+    });
 
-    await auditService.log({ client: pool, orgId: req.user.org_id, userId: req.user.id, action: 'create', entity: 'products', entityId: result.rows[0].id });
-    return res.status(201).json({ success: true, data: result.rows[0], message: 'Product created' });
+    return res.status(201).json({ success: true, data: product, message: 'Product created' });
   } catch (err) { next(err); }
 };
 
@@ -92,7 +95,7 @@ const getOne = async (req, res, next) => {
 
     const stockRes = await pool.query(
       `SELECT l.id AS location_id, l.name AS location_name, b.name AS branch_name,
-              COALESCE(SUM(sl.change_qty), 0)::INTEGER AS stock_on_hand
+              COALESCE(SUM(sl.quantity_change), 0)::INTEGER AS stock_on_hand
        FROM locations l
        JOIN branches b ON b.id = l.branch_id
        LEFT JOIN stock_ledger sl ON sl.location_id = l.id AND sl.product_id = $1 AND sl.variant_id IS NULL

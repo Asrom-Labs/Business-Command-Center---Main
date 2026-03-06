@@ -4,7 +4,8 @@
       "Bash(python3.exe:*)",
       "Bash(py:*)",
       "Bash(node:*)",
-      "Bash(do node:*)"
+      "Bash(do node:*)",
+      "Bash(psql:*)"
     ]
   }
 }

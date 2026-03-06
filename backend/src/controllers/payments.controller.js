@@ -33,7 +33,7 @@ const create = async (req, res, next) => {
 
     const result = await withTransaction(async (client) => {
       const soRes = await client.query(
-        `SELECT id, total, amount_paid, status FROM sales_orders WHERE id = $1 AND organization_id = $2 FOR UPDATE`,
+        `SELECT id, total, amount_paid, status, customer_id FROM sales_orders WHERE id = $1 AND organization_id = $2 FOR UPDATE`,
         [orderId, orgId]
       );
       if (!soRes.rows.length) {
@@ -52,20 +52,47 @@ const create = async (req, res, next) => {
       );
 
       const newAmountPaid = parseFloat(so.amount_paid) + parseFloat(amount);
+      const orderTotal = parseFloat(so.total);
+
+      if (newAmountPaid > orderTotal + 0.01) {
+        const remaining = (orderTotal - parseFloat(so.amount_paid)).toFixed(2);
+        const err = new Error(`Payment exceeds order total. Remaining balance: ${remaining}`);
+        err.isAppError = true; err.statusCode = 422; err.errorCode = 'OVERPAYMENT'; throw err;
+      }
+
+      const newStatus = newAmountPaid >= orderTotal - 0.01 ? 'paid' : 'partially_paid';
       await client.query(
-        `UPDATE sales_orders SET amount_paid = $1, updated_at = NOW() WHERE id = $2`,
-        [newAmountPaid, orderId]
+        `UPDATE sales_orders SET amount_paid = $1, status = $2, updated_at = NOW() WHERE id = $3`,
+        [newAmountPaid, newStatus, orderId]
       );
 
-      // If payment is via credit, add balance to customer
+      // If payment is via credit (extend credit to customer), add to their credit balance
       if (method === 'credit') {
-        const soFullRes = await client.query(`SELECT customer_id FROM sales_orders WHERE id = $1`, [orderId]);
-        if (soFullRes.rows[0] && soFullRes.rows[0].customer_id) {
+        if (so.customer_id) {
           await client.query(
             `UPDATE customers SET credit_balance = credit_balance + $1 WHERE id = $2`,
-            [amount, soFullRes.rows[0].customer_id]
+            [amount, so.customer_id]
           );
         }
+      }
+
+      // If payment is via store_credit (customer redeeming their credit), deduct from their balance
+      if (method === 'store_credit') {
+        if (!so.customer_id) {
+          const err = new Error('Store credit payments require an order linked to a customer');
+          err.isAppError = true; err.statusCode = 422; err.errorCode = 'BUSINESS_RULE'; throw err;
+        }
+        const custRes = await client.query(
+          `SELECT credit_balance FROM customers WHERE id = $1 FOR UPDATE`, [so.customer_id]
+        );
+        if (!custRes.rows.length || parseFloat(custRes.rows[0].credit_balance) < parseFloat(amount)) {
+          const err = new Error('Insufficient store credit balance');
+          err.isAppError = true; err.statusCode = 422; err.errorCode = 'BUSINESS_RULE'; throw err;
+        }
+        await client.query(
+          `UPDATE customers SET credit_balance = credit_balance - $1 WHERE id = $2`,
+          [amount, so.customer_id]
+        );
       }
 
       await auditService.log({ client, orgId, userId: req.user.id, action: 'create', entity: 'payments', entityId: payment.rows[0].id });

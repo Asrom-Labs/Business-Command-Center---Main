@@ -46,7 +46,7 @@ const create = async (req, res, next) => {
       // Validate supplier belongs to org
       const supChk = await client.query(`SELECT id FROM suppliers WHERE id = $1 AND organization_id = $2`, [supplier_id, orgId]);
       if (!supChk.rows.length) {
-        const err = new Error('Supplier not found'); err.isAppError = true; err.statusCode = 422; err.errorCode = 'VALIDATION_ERROR'; throw err;
+        const err = new Error('Supplier not found in your organization'); err.isAppError = true; err.statusCode = 422; err.errorCode = 'VALIDATION_ERROR'; throw err;
       }
 
       // Validate location belongs to org
@@ -55,7 +55,7 @@ const create = async (req, res, next) => {
         [location_id, orgId]
       );
       if (!locChk.rows.length) {
-        const err = new Error('Location not found'); err.isAppError = true; err.statusCode = 422; err.errorCode = 'VALIDATION_ERROR'; throw err;
+        const err = new Error('Location not found in your organization'); err.isAppError = true; err.statusCode = 422; err.errorCode = 'VALIDATION_ERROR'; throw err;
       }
 
       const poRes = await client.query(
@@ -66,17 +66,17 @@ const create = async (req, res, next) => {
       const poId = poRes.rows[0].id;
 
       for (const item of items) {
-        const { product_id, variant_id = null, quantity, cost } = item;
+        const { product_id, variant_id = null, quantity, unit_cost } = item;
         const prodChk = await client.query(
           `SELECT id FROM products WHERE id = $1 AND organization_id = $2 AND active = TRUE`, [product_id, orgId]
         );
         if (!prodChk.rows.length) {
-          const err = new Error(`Product ${product_id} not found`);
+          const err = new Error('Product not found or is not active');
           err.isAppError = true; err.statusCode = 422; err.errorCode = 'VALIDATION_ERROR'; throw err;
         }
         await client.query(
           `INSERT INTO purchase_order_items (purchase_order_id, product_id, variant_id, quantity, cost) VALUES ($1, $2, $3, $4, $5)`,
-          [poId, product_id, variant_id, quantity, cost]
+          [poId, product_id, variant_id, quantity, unit_cost]
         );
       }
 
@@ -145,8 +145,8 @@ const updateStatus = async (req, res, next) => {
 
     const current = chk.rows[0].status;
     const validTransitions = {
-      draft: ['sent', 'cancelled'],
-      sent: ['partially_received', 'received', 'cancelled'],
+      draft: ['submitted', 'cancelled'],
+      submitted: ['partially_received', 'received', 'cancelled'],
       partially_received: ['received', 'cancelled'],
     };
     if (!validTransitions[current] || !validTransitions[current].includes(status)) {
@@ -196,22 +196,35 @@ const receive = async (req, res, next) => {
       const grId = grRes.rows[0].id;
 
       for (const item of items) {
-        const { purchase_order_item_id, quantity_received } = item;
+        const { purchase_order_item_id, product_id: itemProductId, quantity_received } = item;
 
-        const poiRes = await client.query(
-          `SELECT * FROM purchase_order_items WHERE id = $1 AND purchase_order_id = $2`,
-          [purchase_order_item_id, id]
-        );
-        if (!poiRes.rows.length) {
-          const err = new Error(`PO item ${purchase_order_item_id} not found`);
-          err.isAppError = true; err.statusCode = 422; err.errorCode = 'VALIDATION_ERROR'; throw err;
+        let poiRes;
+        if (purchase_order_item_id) {
+          poiRes = await client.query(
+            `SELECT * FROM purchase_order_items WHERE id = $1 AND purchase_order_id = $2`,
+            [purchase_order_item_id, id]
+          );
+          if (!poiRes.rows.length) {
+            const err = new Error('Purchase order item not found on this order');
+            err.isAppError = true; err.statusCode = 422; err.errorCode = 'VALIDATION_ERROR'; throw err;
+          }
+        } else {
+          // Caller supplied product_id — find the matching PO item automatically
+          poiRes = await client.query(
+            `SELECT * FROM purchase_order_items WHERE product_id = $1 AND purchase_order_id = $2`,
+            [itemProductId, id]
+          );
+          if (!poiRes.rows.length) {
+            const err = new Error('No matching item found for this product on the purchase order');
+            err.isAppError = true; err.statusCode = 422; err.errorCode = 'VALIDATION_ERROR'; throw err;
+          }
         }
         const poi = poiRes.rows[0];
 
         await client.query(
           `INSERT INTO goods_receipt_items (goods_receipt_id, purchase_order_item_id, product_id, variant_id, quantity_received)
            VALUES ($1, $2, $3, $4, $5)`,
-          [grId, purchase_order_item_id, poi.product_id, poi.variant_id, quantity_received]
+          [grId, poi.id, poi.product_id, poi.variant_id, quantity_received]
         );
 
         // Write stock ledger entry

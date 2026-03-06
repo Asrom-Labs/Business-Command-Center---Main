@@ -23,7 +23,7 @@ router.get('/top-products', [
   qv('limit').optional().isInt({ min: 1, max: 50 }),
 ], validate, ctrl.topProducts);
 
-router.get('/sales-by-source', dateRangeValidators, validate, ctrl.salesBySource);
+router.get('/sales-by-channel', dateRangeValidators, validate, ctrl.salesByChannel);
 
 router.get('/expenses-by-category', dateRangeValidators, validate, ctrl.expensesByCategory);
 

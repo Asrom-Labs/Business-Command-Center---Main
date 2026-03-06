@@ -74,7 +74,7 @@ const update = async (req, res, next) => {
     const updates = []; const values = []; let idx = 1;
     if (name !== undefined) { updates.push(`name = $${idx++}`); values.push(name.trim()); }
     if (type !== undefined) { updates.push(`type = $${idx++}`); values.push(type); }
-    if (!updates.length) return res.status(400).json({ success: false, error: 'VALIDATION_ERROR', message: 'No fields to update' });
+    if (!updates.length) return res.status(400).json({ success: false, error: 'NO_CHANGES', message: 'No valid fields provided for update' });
     updates.push(`updated_at = NOW()`);
     values.push(req.params.id);
 

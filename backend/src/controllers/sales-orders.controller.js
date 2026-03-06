@@ -9,12 +9,12 @@ const list = async (req, res, next) => {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
     const offset = (page - 1) * limit;
-    const { status, source, customer_id, location_id } = req.query;
+    const { status, channel, customer_id, location_id } = req.query;
 
     const vals = [req.user.org_id];
     let w = 'WHERE so.organization_id = $1'; let idx = 2;
     if (status) { w += ` AND so.status = $${idx++}`; vals.push(status); }
-    if (source) { w += ` AND so.source = $${idx++}`; vals.push(source); }
+    if (channel) { w += ` AND so.channel = $${idx++}`; vals.push(channel); }
     if (customer_id) { w += ` AND so.customer_id = $${idx++}`; vals.push(customer_id); }
     if (location_id) { w += ` AND so.location_id = $${idx++}`; vals.push(location_id); }
 
@@ -42,7 +42,7 @@ const list = async (req, res, next) => {
 const create = async (req, res, next) => {
   try {
     const {
-      customer_id = null, location_id, source = 'in_store',
+      customer_id = null, location_id, channel = 'in_store',
       discount = 0, tax = 0, note = null, items,
     } = req.body;
     const orgId = req.user.org_id;
@@ -80,7 +80,7 @@ const create = async (req, res, next) => {
           [product_id, variant_id, orgId]
         );
         if (!prodRes.rows.length) {
-          const err = new Error(`Product ${product_id} not found`);
+          const err = new Error('Product not found or is not active');
           err.isAppError = true; err.statusCode = 422; err.errorCode = 'VALIDATION_ERROR'; throw err;
         }
 
@@ -96,9 +96,9 @@ const create = async (req, res, next) => {
       const total = subtotal - discount + tax;
 
       const soRes = await client.query(
-        `INSERT INTO sales_orders (organization_id, customer_id, location_id, user_id, source, status, subtotal, discount, tax, total, note)
-         VALUES ($1, $2, $3, $4, $5, 'new', $6, $7, $8, $9, $10) RETURNING *`,
-        [orgId, customer_id, location_id, req.user.id, source, subtotal, discount, tax, total, note]
+        `INSERT INTO sales_orders (organization_id, customer_id, location_id, user_id, channel, status, subtotal, discount, tax, total, note)
+         VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7, $8, $9, $10) RETURNING *`,
+        [orgId, customer_id, location_id, req.user.id, channel, subtotal, discount, tax, total, note]
       );
       const soId = soRes.rows[0].id;
 

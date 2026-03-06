@@ -10,7 +10,7 @@ const ctrl = require('../controllers/transfers.controller');
 router.use(authenticate);
 
 router.get('/', [
-  qv('status').optional().isIn(['pending', 'confirmed', 'cancelled']),
+  qv('status').optional().isIn(['pending', 'completed', 'cancelled']),
   qv('page').optional().isInt({ min: 1 }),
   qv('limit').optional().isInt({ min: 1, max: 100 }),
 ], validate, ctrl.list);

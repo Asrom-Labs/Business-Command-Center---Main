@@ -5,7 +5,7 @@
  */
 const getStockOnHand = async (client, productId, variantId, locationId) => {
   const result = await client.query(
-    `SELECT COALESCE(SUM(change_qty), 0)::INTEGER AS stock
+    `SELECT COALESCE(SUM(quantity_change), 0)::INTEGER AS stock
      FROM stock_ledger
      WHERE product_id = $1
        AND ($2::uuid IS NULL AND variant_id IS NULL OR variant_id = $2)
@@ -37,7 +37,7 @@ const insertLedgerEntry = async (client, entry) => {
   }
 
   await client.query(
-    `INSERT INTO stock_ledger (product_id, variant_id, location_id, change_qty, movement_type, reference_id, note, created_by)
+    `INSERT INTO stock_ledger (product_id, variant_id, location_id, quantity_change, movement_type, reference_id, note, created_by)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
     [productId, variantId || null, locationId, changeQty, movementType, referenceId || null, note || null, createdBy]
   );
@@ -49,12 +49,12 @@ const insertLedgerEntry = async (client, entry) => {
 const getOrgStockSummary = async (client, orgId) => {
   const result = await client.query(
     `SELECT sl.product_id, sl.variant_id, sl.location_id,
-            SUM(sl.change_qty)::INTEGER AS stock_on_hand
+            SUM(sl.quantity_change)::INTEGER AS stock_on_hand
      FROM stock_ledger sl
      JOIN products p ON p.id = sl.product_id
      WHERE p.organization_id = $1
      GROUP BY sl.product_id, sl.variant_id, sl.location_id
-     HAVING SUM(sl.change_qty) > 0`,
+     HAVING SUM(sl.quantity_change) > 0`,
     [orgId]
   );
   return result.rows;

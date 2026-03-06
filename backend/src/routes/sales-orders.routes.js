@@ -10,8 +10,8 @@ const ctrl = require('../controllers/sales-orders.controller');
 router.use(authenticate);
 
 router.get('/', [
-  qv('status').optional().isIn(['new', 'processing', 'shopped', 'delivered', 'cancelled']),
-  qv('source').optional().isIn(['in_store', 'whatsapp', 'instagram', 'snapchat', 'tiktok', 'online', 'other']),
+  qv('status').optional().isIn(['pending', 'partially_paid', 'paid', 'processing', 'shipped', 'delivered', 'cancelled']),
+  qv('channel').optional().isIn(['in_store', 'whatsapp', 'instagram', 'snapchat', 'tiktok', 'online', 'other']),
   qv('customer_id').optional().isUUID(),
   qv('location_id').optional().isUUID(),
   qv('page').optional().isInt({ min: 1 }),
@@ -21,7 +21,7 @@ router.get('/', [
 router.post('/', requireMinRole('staff'), [
   body('location_id').isUUID().withMessage('location_id is required'),
   body('customer_id').optional({ nullable: true }).isUUID(),
-  body('source').optional().isIn(['in_store', 'whatsapp', 'instagram', 'snapchat', 'tiktok', 'online', 'other']),
+  body('channel').optional().isIn(['in_store', 'whatsapp', 'instagram', 'snapchat', 'tiktok', 'online', 'other']),
   body('discount').optional({ nullable: true }).isFloat({ min: 0 }),
   body('tax').optional({ nullable: true }).isFloat({ min: 0 }),
   body('note').optional({ nullable: true }).trim(),
@@ -37,7 +37,7 @@ router.get('/:id', [param('id').isUUID()], validate, ctrl.getOne);
 
 router.patch('/:id/status', requireMinRole('staff'), [
   param('id').isUUID(),
-  body('status').isIn(['new', 'processing', 'shopped', 'delivered', 'cancelled']).withMessage('Invalid status'),
+  body('status').isIn(['pending', 'partially_paid', 'paid', 'processing', 'shipped', 'delivered', 'cancelled']).withMessage('Invalid status'),
 ], validate, ctrl.updateStatus);
 
 module.exports = router;

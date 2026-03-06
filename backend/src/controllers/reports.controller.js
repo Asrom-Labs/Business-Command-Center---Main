@@ -38,7 +38,7 @@ const dashboard = async (req, res, next) => {
       ),
       // Returns
       pool.query(
-        `SELECT COUNT(*)::INTEGER AS return_count, COALESCE(SUM(total_refund), 0) AS total_refund
+        `SELECT COUNT(*)::INTEGER AS return_count, COALESCE(SUM(total_refund_amount), 0) AS total_refund_amount
          FROM returns WHERE organization_id = $1 AND created_at::DATE BETWEEN $2 AND $3`,
         [orgId, from, to]
       ),
@@ -52,7 +52,7 @@ const dashboard = async (req, res, next) => {
         `SELECT COUNT(DISTINCT p.id)::INTEGER AS low_stock_count
          FROM products p
          LEFT JOIN (
-           SELECT product_id, SUM(change_qty)::INTEGER AS stock_on_hand
+           SELECT product_id, SUM(quantity_change)::INTEGER AS stock_on_hand
            FROM stock_ledger GROUP BY product_id
          ) s ON s.product_id = p.id
          WHERE p.organization_id = $1
@@ -73,7 +73,7 @@ const dashboard = async (req, res, next) => {
     const grossRevenue = parseFloat(sales.gross_revenue);
     const totalCost = parseFloat(sales.total_cost);
     const totalExpenses = parseFloat(expenseRes.rows[0].total_expenses);
-    const totalRefund = parseFloat(returnsRes.rows[0].total_refund);
+    const totalRefund = parseFloat(returnsRes.rows[0].total_refund_amount);
     const grossProfit = grossRevenue - totalCost;
     const netProfit = grossProfit - totalExpenses - totalRefund;
 
@@ -92,7 +92,7 @@ const dashboard = async (req, res, next) => {
           total_cost: totalCost,
           gross_profit: grossProfit,
           total_expenses: totalExpenses,
-          total_refund: totalRefund,
+          total_refund_amount: totalRefund,
           net_profit: netProfit,
           gross_margin_pct: grossRevenue > 0 ? Math.round((grossProfit / grossRevenue) * 10000) / 100 : 0,
         },
@@ -145,7 +145,7 @@ const topProducts = async (req, res, next) => {
 
     const result = await pool.query(
       `SELECT soi.product_id, p.name AS product_name, p.sku,
-              SUM(soi.quantity)::INTEGER AS total_qty_sold,
+              SUM(soi.quantity)::INTEGER AS total_quantity_sold,
               COALESCE(SUM(soi.price * soi.quantity - soi.discount), 0) AS total_revenue,
               COALESCE(SUM(soi.cost * soi.quantity), 0) AS total_cost
        FROM sales_order_items soi
@@ -162,23 +162,23 @@ const topProducts = async (req, res, next) => {
 };
 
 /**
- * GET /api/reports/sales-by-source
+ * GET /api/reports/sales-by-channel
  * Sales breakdown by channel (in_store, whatsapp, etc.)
  */
-const salesBySource = async (req, res, next) => {
+const salesByChannel = async (req, res, next) => {
   try {
     const orgId = req.user.org_id;
     const from = req.query.from || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
     const to = req.query.to || new Date().toISOString().split('T')[0];
 
     const result = await pool.query(
-      `SELECT source,
+      `SELECT channel,
               COUNT(*)::INTEGER AS order_count,
               COALESCE(SUM(total), 0) AS revenue
        FROM sales_orders
        WHERE organization_id = $1 AND status != 'cancelled'
          AND created_at::DATE BETWEEN $2 AND $3
-       GROUP BY source ORDER BY revenue DESC`,
+       GROUP BY channel ORDER BY revenue DESC`,
       [orgId, from, to]
     );
     return res.json({ success: true, data: result.rows, message: 'Success' });
@@ -219,14 +219,14 @@ const lowStock = async (req, res, next) => {
               c.name AS category_name,
               sl.location_id,
               l.name AS location_name,
-              COALESCE(SUM(sl.change_qty), 0)::INTEGER AS stock_on_hand
+              COALESCE(SUM(sl.quantity_change), 0)::INTEGER AS stock_on_hand
        FROM products p
        LEFT JOIN categories c ON c.id = p.category_id
        LEFT JOIN stock_ledger sl ON sl.product_id = p.id AND sl.variant_id IS NULL
        LEFT JOIN locations l ON l.id = sl.location_id
        WHERE p.organization_id = $1 AND p.active = TRUE AND p.low_stock_threshold > 0
        GROUP BY p.id, p.name, p.sku, p.low_stock_threshold, c.name, sl.location_id, l.name
-       HAVING COALESCE(SUM(sl.change_qty), 0) <= p.low_stock_threshold
+       HAVING COALESCE(SUM(sl.quantity_change), 0) <= p.low_stock_threshold
        ORDER BY stock_on_hand ASC, p.name ASC`,
       [orgId]
     );
@@ -234,4 +234,4 @@ const lowStock = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { dashboard, salesByDay, topProducts, salesBySource, expensesByCategory, lowStock };
+module.exports = { dashboard, salesByDay, topProducts, salesByChannel, expensesByCategory, lowStock };

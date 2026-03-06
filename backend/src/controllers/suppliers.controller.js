@@ -70,7 +70,7 @@ const update = async (req, res, next) => {
       }
     }
     if (!sets.length) {
-      return res.status(400).json({ success: false, error: 'NO_CHANGES', message: 'No valid fields provided' });
+      return res.status(400).json({ success: false, error: 'NO_CHANGES', message: 'No valid fields provided for update' });
     }
     sets.push(`updated_at = NOW()`);
     vals.push(req.params.id);

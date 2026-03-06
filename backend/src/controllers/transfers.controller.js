@@ -72,7 +72,7 @@ const create = async (req, res, next) => {
           `SELECT id FROM products WHERE id = $1 AND organization_id = $2 AND active = TRUE`, [product_id, orgId]
         );
         if (!prodChk.rows.length) {
-          const err = new Error(`Product ${product_id} not found`);
+          const err = new Error('Product not found or is not active');
           err.isAppError = true; err.statusCode = 422; err.errorCode = 'VALIDATION_ERROR'; throw err;
         }
 
@@ -174,7 +174,7 @@ const confirm = async (req, res, next) => {
       }
 
       const updated = await client.query(
-        `UPDATE transfers SET status = 'confirmed', updated_at = NOW() WHERE id = $1 RETURNING *`, [id]
+        `UPDATE transfers SET status = 'completed', updated_at = NOW() WHERE id = $1 RETURNING *`, [id]
       );
       await auditService.log({ client, orgId, userId: req.user.id, action: 'confirm', entity: 'transfers', entityId: id });
       return updated.rows[0];

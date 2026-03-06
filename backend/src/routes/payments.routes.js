@@ -16,7 +16,7 @@ router.get('/order/:orderId', [param('orderId').isUUID()], validate, ctrl.listFo
 router.post('/order/:orderId', requireMinRole('staff'), [
   param('orderId').isUUID(),
   body('amount').isFloat({ min: 0.01 }).withMessage('Amount must be greater than 0'),
-  body('method').isIn(['cash', 'card', 'bank_transfer', 'credit', 'credit_settlement', 'other']).withMessage('Invalid payment method'),
+  body('method').isIn(['cash', 'card', 'bank_transfer', 'credit', 'store_credit', 'other']).withMessage('Invalid payment method'),
   body('note').optional({ nullable: true }).trim(),
 ], validate, ctrl.create);
 
