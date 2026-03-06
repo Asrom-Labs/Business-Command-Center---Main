@@ -95,6 +95,11 @@ const create = async (req, res, next) => {
 
       const total = subtotal - discount + tax;
 
+      if (total < 0) {
+        const err = new Error('Order total cannot be negative');
+        err.isAppError = true; err.statusCode = 422; err.errorCode = 'BUSINESS_RULE'; throw err;
+      }
+
       const soRes = await client.query(
         `INSERT INTO sales_orders (organization_id, customer_id, location_id, user_id, channel, status, subtotal, discount, tax, total, note)
          VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7, $8, $9, $10) RETURNING *`,
@@ -174,18 +179,70 @@ const updateStatus = async (req, res, next) => {
     const { status } = req.body;
     const orgId = req.user.org_id;
 
-    const chk = await pool.query(
-      `SELECT status FROM sales_orders WHERE id = $1 AND organization_id = $2`, [id, orgId]
-    );
-    if (!chk.rows.length) {
-      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Sales order not found' });
-    }
+    const result = await withTransaction(async (client) => {
+      const chk = await client.query(
+        `SELECT so.status, so.location_id FROM sales_orders so WHERE so.id = $1 AND so.organization_id = $2 FOR UPDATE`,
+        [id, orgId]
+      );
+      if (!chk.rows.length) {
+        const err = new Error('Sales order not found');
+        err.isAppError = true; err.statusCode = 404; err.errorCode = 'NOT_FOUND'; throw err;
+      }
 
-    const result = await pool.query(
-      `UPDATE sales_orders SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`, [status, id]
-    );
-    await auditService.log({ client: pool, orgId, userId: req.user.id, action: 'status_change', entity: 'sales_orders', entityId: id, changes: { from: chk.rows[0].status, to: status } });
-    return res.json({ success: true, data: result.rows[0], message: 'Status updated' });
+      const current = chk.rows[0].status;
+      const locationId = chk.rows[0].location_id;
+
+      const validTransitions = {
+        pending:        ['processing', 'partially_paid', 'paid', 'cancelled'],
+        partially_paid: ['paid', 'processing', 'cancelled'],
+        paid:           ['processing', 'shipped'],
+        processing:     ['shipped', 'cancelled'],
+        shipped:        ['delivered'],
+        delivered:      [],
+        cancelled:      [],
+      };
+      if (!validTransitions[current] || !validTransitions[current].includes(status)) {
+        const err = new Error(`Cannot transition sales order from '${current}' to '${status}'`);
+        err.isAppError = true; err.statusCode = 422; err.errorCode = 'BUSINESS_RULE'; throw err;
+      }
+
+      // On cancellation, restore stock for all items net of any prior returns
+      if (status === 'cancelled') {
+        const itemsRes = await client.query(
+          `SELECT soi.product_id, soi.variant_id, soi.quantity,
+                  COALESCE(SUM(ri.quantity_returned), 0)::INTEGER AS already_returned
+           FROM sales_order_items soi
+           LEFT JOIN return_items ri ON ri.sales_order_item_id = soi.id
+           WHERE soi.sales_order_id = $1
+           GROUP BY soi.id`,
+          [id]
+        );
+
+        for (const item of itemsRes.rows) {
+          const restoreQty = item.quantity - item.already_returned;
+          if (restoreQty > 0) {
+            await stockService.insertLedgerEntry(client, {
+              productId: item.product_id,
+              variantId: item.variant_id,
+              locationId,
+              changeQty: restoreQty,
+              movementType: 'adjustment',
+              referenceId: id,
+              note: `Stock restored on order cancellation`,
+              createdBy: req.user.id,
+            });
+          }
+        }
+      }
+
+      const updated = await client.query(
+        `UPDATE sales_orders SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`, [status, id]
+      );
+      await auditService.log({ client, orgId, userId: req.user.id, action: 'status_change', entity: 'sales_orders', entityId: id, changes: { from: current, to: status } });
+      return updated.rows[0];
+    });
+
+    return res.json({ success: true, data: result, message: 'Status updated' });
   } catch (err) { next(err); }
 };
 

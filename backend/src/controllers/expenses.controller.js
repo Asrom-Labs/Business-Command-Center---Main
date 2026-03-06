@@ -124,6 +124,16 @@ const update = async (req, res, next) => {
       return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Expense not found' });
     }
 
+    if (req.body.category_id) {
+      const catChk = await pool.query(
+        `SELECT id FROM expense_categories WHERE id = $1 AND organization_id = $2`,
+        [req.body.category_id, req.user.org_id]
+      );
+      if (!catChk.rows.length) {
+        return res.status(422).json({ success: false, error: 'VALIDATION_ERROR', message: 'Expense category not found in your organization' });
+      }
+    }
+
     const allowedFields = ['category_id', 'location_id', 'amount', 'date', 'recurring', 'note'];
     const sets = []; const vals = []; let idx = 1;
     for (const field of allowedFields) {

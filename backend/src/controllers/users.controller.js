@@ -13,7 +13,7 @@ const list = async (req, res, next) => {
     const offset = (page - 1) * limit;
     const search = req.query.search ? `%${req.query.search}%` : null;
 
-    let where = 'WHERE u.organization_id = $1';
+    let where = 'WHERE u.organization_id = $1 AND u.active = TRUE';
     const values = [req.user.org_id];
     let idx = 2;
     if (search) { where += ` AND (u.name ILIKE $${idx} OR u.email ILIKE $${idx})`; values.push(search); idx++; }
@@ -141,8 +141,8 @@ const update = async (req, res, next) => {
       await auditService.log({ client, orgId: req.user.org_id, userId: req.user.id, action: 'update', entity: 'users', entityId: req.params.id });
 
       const updated = await client.query(
-        `SELECT u.id, u.name, u.email, u.active, u.updated_at, r.name AS role FROM users u LEFT JOIN user_roles ur ON ur.user_id = u.id LEFT JOIN roles r ON r.id = ur.role_id WHERE u.id = $1`,
-        [req.params.id]
+        `SELECT u.id, u.name, u.email, u.active, u.updated_at, r.name AS role FROM users u LEFT JOIN user_roles ur ON ur.user_id = u.id LEFT JOIN roles r ON r.id = ur.role_id WHERE u.id = $1 AND u.organization_id = $2`,
+        [req.params.id, req.user.org_id]
       );
       return updated.rows[0];
     });
@@ -173,11 +173,10 @@ const remove = async (req, res, next) => {
           const err = new Error('Cannot delete the last owner of the organization'); err.isAppError = true; err.statusCode = 422; err.errorCode = 'BUSINESS_RULE'; throw err;
         }
       }
-      await client.query('DELETE FROM user_roles WHERE user_id = $1', [req.params.id]);
-      await client.query('DELETE FROM users WHERE id = $1', [req.params.id]);
+      await client.query('UPDATE users SET active = FALSE, updated_at = NOW() WHERE id = $1', [req.params.id]);
       await auditService.log({ client, orgId: req.user.org_id, userId: req.user.id, action: 'delete', entity: 'users', entityId: req.params.id });
     });
-    return res.json({ success: true, data: null, message: 'User deleted' });
+    return res.json({ success: true, data: null, message: 'User deactivated' });
   } catch (err) { next(err); }
 };
 

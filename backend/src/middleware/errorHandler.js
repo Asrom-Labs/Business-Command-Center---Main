@@ -10,7 +10,6 @@ const errorHandler = (err, req, res, next) => {
       success: false,
       error: 'DUPLICATE_ENTRY',
       message: 'A record with this value already exists',
-      detail: err.detail || undefined,
     });
   }
 
@@ -20,7 +19,6 @@ const errorHandler = (err, req, res, next) => {
       success: false,
       error: 'REFERENCE_ERROR',
       message: 'Referenced record does not exist or cannot be deleted because it is in use',
-      detail: err.detail || undefined,
     });
   }
 
@@ -30,7 +28,6 @@ const errorHandler = (err, req, res, next) => {
       success: false,
       error: 'VALIDATION_ERROR',
       message: 'Value violates a database constraint',
-      detail: err.detail || undefined,
     });
   }
 

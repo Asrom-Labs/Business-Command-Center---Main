@@ -27,6 +27,7 @@ CREATE TABLE branches (
   organization_id UUID          NOT NULL REFERENCES organizations(id) ON DELETE RESTRICT,
   name            VARCHAR(255)  NOT NULL,
   city            VARCHAR(255),
+  active          BOOLEAN       NOT NULL DEFAULT TRUE,
   created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
@@ -78,9 +79,11 @@ CREATE TABLE categories (
 );
 
 CREATE TABLE units (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name       VARCHAR(100) NOT NULL UNIQUE,
-  created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID        REFERENCES organizations(id) ON DELETE RESTRICT,
+  name            VARCHAR(100) NOT NULL,
+  created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  UNIQUE (organization_id, name)
 );
 
 CREATE TABLE products (
@@ -188,6 +191,7 @@ CREATE TABLE customers (
   email           VARCHAR(255),
   address         TEXT,
   credit_balance  NUMERIC(12,2) NOT NULL DEFAULT 0.00 CHECK (credit_balance >= 0),
+  active          BOOLEAN       NOT NULL DEFAULT TRUE,
   created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
@@ -212,6 +216,7 @@ CREATE TABLE suppliers (
   email           VARCHAR(255),
   address         TEXT,
   contact_person  VARCHAR(255),
+  active          BOOLEAN      NOT NULL DEFAULT TRUE,
   created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
   updated_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
@@ -409,6 +414,7 @@ CREATE INDEX idx_users_active ON users(organization_id, active);
 
 -- Categories
 CREATE INDEX idx_categories_org ON categories(organization_id);
+CREATE INDEX idx_expense_categories_org ON expense_categories(organization_id);
 
 -- Products
 CREATE INDEX idx_products_org      ON products(organization_id);
@@ -454,6 +460,7 @@ CREATE INDEX idx_purchase_order_items_po  ON purchase_order_items(purchase_order
 CREATE INDEX idx_goods_receipts_org      ON goods_receipts(organization_id);
 CREATE INDEX idx_goods_receipts_po       ON goods_receipts(purchase_order_id);
 CREATE INDEX idx_goods_receipt_items_gr  ON goods_receipt_items(goods_receipt_id);
+CREATE INDEX idx_goods_receipt_items_poi ON goods_receipt_items(purchase_order_item_id);
 
 -- Supplier payments
 CREATE INDEX idx_supplier_payments_org      ON supplier_payments(organization_id);
@@ -465,12 +472,14 @@ CREATE INDEX idx_sales_orders_org        ON sales_orders(organization_id);
 CREATE INDEX idx_sales_orders_customer   ON sales_orders(customer_id);
 CREATE INDEX idx_sales_orders_status     ON sales_orders(status);
 CREATE INDEX idx_sales_orders_created_at ON sales_orders(created_at);
-CREATE INDEX idx_sales_orders_source     ON sales_orders(source);
-CREATE INDEX idx_sales_order_items_order ON sales_order_items(sales_order_id);
+CREATE INDEX idx_sales_orders_channel    ON sales_orders(channel);
+CREATE INDEX idx_sales_order_items_order   ON sales_order_items(sales_order_id);
+CREATE INDEX idx_sales_order_items_product ON sales_order_items(product_id);
 
 -- Payments
-CREATE INDEX idx_payments_org   ON payments(organization_id);
-CREATE INDEX idx_payments_order ON payments(sales_order_id);
+CREATE INDEX idx_payments_org     ON payments(organization_id);
+CREATE INDEX idx_payments_order   ON payments(sales_order_id);
+CREATE INDEX idx_payments_paid_at ON payments(paid_at);
 
 -- Returns
 CREATE INDEX idx_returns_org          ON returns(organization_id);

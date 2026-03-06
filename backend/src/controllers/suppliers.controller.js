@@ -11,7 +11,7 @@ const list = async (req, res, next) => {
     const search = req.query.search ? `%${req.query.search}%` : null;
 
     const vals = [req.user.org_id];
-    let w = 'WHERE organization_id = $1'; let idx = 2;
+    let w = 'WHERE organization_id = $1 AND active = TRUE'; let idx = 2;
     if (search) { w += ` AND (name ILIKE $${idx} OR contact_person ILIKE $${idx})`; vals.push(search); idx++; }
 
     const countRes = await pool.query(`SELECT COUNT(*) FROM suppliers ${w}`, vals);
@@ -89,9 +89,9 @@ const remove = async (req, res, next) => {
     if (!chk.rows.length) {
       return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Supplier not found' });
     }
-    await pool.query(`DELETE FROM suppliers WHERE id = $1`, [req.params.id]);
+    await pool.query(`UPDATE suppliers SET active = FALSE, updated_at = NOW() WHERE id = $1`, [req.params.id]);
     await auditService.log({ client: pool, orgId: req.user.org_id, userId: req.user.id, action: 'delete', entity: 'suppliers', entityId: req.params.id });
-    return res.json({ success: true, data: null, message: 'Supplier deleted' });
+    return res.json({ success: true, data: null, message: 'Supplier deactivated' });
   } catch (err) { next(err); }
 };
 

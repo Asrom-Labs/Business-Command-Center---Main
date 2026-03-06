@@ -8,6 +8,7 @@ const { authenticate, requireMinRole } = require('../middleware/auth');
 const ctrl = require('../controllers/reports.controller');
 
 router.use(authenticate);
+router.use(requireMinRole('staff'));
 
 const dateRangeValidators = [
   qv('from').optional().isISO8601().withMessage('from must be a valid date (YYYY-MM-DD)'),

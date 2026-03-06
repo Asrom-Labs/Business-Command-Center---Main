@@ -16,7 +16,7 @@ router.post(
     body('currency').trim().notEmpty().withMessage('Currency is required').isLength({ max: 10 }),
     body('name').trim().notEmpty().withMessage('User name is required').isLength({ max: 255 }),
     body('email').trim().normalizeEmail().isEmail().withMessage('Valid email is required'),
-    body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+    body('password').isLength({ min: 8, max: 72 }).withMessage('Password must be between 8 and 72 characters'),
   ],
   validate,
   authController.register
@@ -42,7 +42,7 @@ router.patch(
   authenticate,
   [
     body('current_password').notEmpty().withMessage('Current password is required'),
-    body('new_password').isLength({ min: 8 }).withMessage('New password must be at least 8 characters'),
+    body('new_password').isLength({ min: 8, max: 72 }).withMessage('New password must be between 8 and 72 characters'),
   ],
   validate,
   authController.changePassword

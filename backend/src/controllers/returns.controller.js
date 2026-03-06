@@ -38,7 +38,7 @@ const create = async (req, res, next) => {
 
     const result = await withTransaction(async (client) => {
       const soRes = await client.query(
-        `SELECT so.*, l.id AS location_id FROM sales_orders so JOIN locations l ON l.id = so.location_id WHERE so.id = $1 AND so.organization_id = $2`,
+        `SELECT so.*, l.id AS location_id FROM sales_orders so JOIN locations l ON l.id = so.location_id WHERE so.id = $1 AND so.organization_id = $2 FOR UPDATE`,
         [sales_order_id, orgId]
       );
       if (!soRes.rows.length) {
@@ -66,8 +66,24 @@ const create = async (req, res, next) => {
         }
         const soi = soiRes.rows[0];
 
-        if (quantity_returned > soi.quantity) {
-          const err = new Error('Return quantity exceeds the original ordered quantity');
+        const prevRes = await client.query(
+          `SELECT COALESCE(SUM(ri.quantity_returned), 0)::INTEGER AS already_returned
+           FROM return_items ri
+           JOIN returns r ON r.id = ri.return_id
+           WHERE ri.sales_order_item_id = $1 AND r.organization_id = $2`,
+          [sales_order_item_id, orgId]
+        );
+        const alreadyReturned = prevRes.rows[0].already_returned;
+        const remainingReturnable = soi.quantity - alreadyReturned;
+
+        if (quantity_returned > remainingReturnable) {
+          const err = new Error(`Return quantity (${quantity_returned}) exceeds remaining returnable quantity (${remainingReturnable})`);
+          err.isAppError = true; err.statusCode = 422; err.errorCode = 'BUSINESS_RULE'; throw err;
+        }
+
+        const maxRefund = parseFloat(soi.price) * quantity_returned;
+        if (parseFloat(refund_amount) > maxRefund + 0.01) {
+          const err = new Error(`Refund amount (${refund_amount}) exceeds item value (${maxRefund.toFixed(2)})`);
           err.isAppError = true; err.statusCode = 422; err.errorCode = 'BUSINESS_RULE'; throw err;
         }
 

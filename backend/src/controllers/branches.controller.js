@@ -11,7 +11,7 @@ const list = async (req, res, next) => {
     const search = req.query.search ? `%${req.query.search}%` : null;
 
     const vals = [req.user.org_id];
-    let w = 'WHERE organization_id = $1';
+    let w = 'WHERE organization_id = $1 AND active = TRUE';
     let idx = 2;
     if (search) { w += ` AND name ILIKE $${idx++}`; vals.push(search); }
 
@@ -76,9 +76,9 @@ const remove = async (req, res, next) => {
   try {
     const existing = await pool.query(`SELECT id FROM branches WHERE id = $1 AND organization_id = $2`, [req.params.id, req.user.org_id]);
     if (!existing.rows.length) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Branch not found' });
-    await pool.query(`DELETE FROM branches WHERE id = $1`, [req.params.id]);
+    await pool.query(`UPDATE branches SET active = FALSE, updated_at = NOW() WHERE id = $1`, [req.params.id]);
     await auditService.log({ client: pool, orgId: req.user.org_id, userId: req.user.id, action: 'delete', entity: 'branches', entityId: req.params.id });
-    return res.json({ success: true, data: null, message: 'Branch deleted' });
+    return res.json({ success: true, data: null, message: 'Branch deactivated' });
   } catch (err) { next(err); }
 };
 

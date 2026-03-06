@@ -13,7 +13,7 @@ router.get('/', requireMinRole('admin'), ctrl.list);
 router.post('/', requireMinRole('admin'), [
   body('name').trim().notEmpty().withMessage('Name is required').isLength({ max: 255 }),
   body('email').trim().normalizeEmail().isEmail().withMessage('Valid email required'),
-  body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+  body('password').isLength({ min: 8, max: 72 }).withMessage('Password must be between 8 and 72 characters'),
   body('role').isIn(['admin', 'staff', 'readonly']).withMessage('Role must be admin, staff, or readonly'),
 ], validate, ctrl.create);
 router.get('/:id', requireMinRole('admin'), [param('id').isUUID()], validate, ctrl.getOne);

@@ -64,7 +64,7 @@ const dashboard = async (req, res, next) => {
       // Pending purchase orders
       pool.query(
         `SELECT COUNT(*)::INTEGER AS pending_po_count
-         FROM purchase_orders WHERE organization_id = $1 AND status IN ('draft', 'sent', 'partially_received')`,
+         FROM purchase_orders WHERE organization_id = $1 AND status IN ('draft', 'submitted', 'partially_received')`,
         [orgId]
       ),
     ]);
@@ -154,7 +154,7 @@ const topProducts = async (req, res, next) => {
        WHERE so.organization_id = $1 AND so.status != 'cancelled'
          AND so.created_at::DATE BETWEEN $2 AND $3
        GROUP BY soi.product_id, p.name, p.sku
-       ORDER BY total_qty_sold DESC LIMIT $4`,
+       ORDER BY total_quantity_sold DESC LIMIT $4`,
       [orgId, from, to, limit]
     );
     return res.json({ success: true, data: result.rows, message: 'Success' });

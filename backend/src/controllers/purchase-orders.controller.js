@@ -184,7 +184,7 @@ const receive = async (req, res, next) => {
       }
       const po = poRes.rows[0];
 
-      if (!['draft', 'sent', 'partially_received'].includes(po.status)) {
+      if (!['submitted', 'partially_received'].includes(po.status)) {
         const err = new Error(`Cannot receive goods for a PO with status '${po.status}'`);
         err.isAppError = true; err.statusCode = 422; err.errorCode = 'BUSINESS_RULE'; throw err;
       }

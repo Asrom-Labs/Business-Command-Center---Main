@@ -1,6 +1,6 @@
 'use strict';
 
-const { pool } = require('../db/pool');
+const { pool, withTransaction } = require('../db/pool');
 const auditService = require('../services/audit.service');
 const stockService = require('../services/stock.service');
 
@@ -115,24 +115,27 @@ const adjust = async (req, res, next) => {
       return res.status(422).json({ success: false, error: 'VALIDATION_ERROR', message: 'Location not found' });
     }
 
-    await stockService.insertLedgerEntry(pool, {
-      productId: product_id,
-      variantId: variant_id,
-      locationId: location_id,
-      changeQty: quantity_change,
-      movementType: 'adjustment',
-      referenceId: null,
-      note,
-      createdBy: req.user.id,
+    const newStock = await withTransaction(async (client) => {
+      await stockService.insertLedgerEntry(client, {
+        productId: product_id,
+        variantId: variant_id,
+        locationId: location_id,
+        changeQty: quantity_change,
+        movementType: 'adjustment',
+        referenceId: null,
+        note,
+        createdBy: req.user.id,
+      });
+
+      await auditService.log({
+        client, orgId, userId: req.user.id,
+        action: 'adjustment', entity: 'stock_ledger', entityId: product_id,
+        changes: { product_id, location_id, quantity_change },
+      });
+
+      return stockService.getStockOnHand(client, product_id, variant_id, location_id);
     });
 
-    await auditService.log({
-      client: pool, orgId, userId: req.user.id,
-      action: 'adjustment', entity: 'stock_ledger', entityId: product_id,
-      changes: { product_id, location_id, quantity_change },
-    });
-
-    const newStock = await stockService.getStockOnHand(pool, product_id, variant_id, location_id);
     return res.status(201).json({ success: true, data: { product_id, location_id, stock_on_hand: newStock }, message: 'Stock adjusted' });
   } catch (err) { next(err); }
 };

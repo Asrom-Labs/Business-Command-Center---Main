@@ -23,7 +23,7 @@ router.post('/', requireMinRole('staff'), [
   body('items').isArray({ min: 1 }).withMessage('At least one item is required'),
   body('items.*.sales_order_item_id').isUUID(),
   body('items.*.quantity_returned').isInt({ min: 1 }),
-  body('items.*.refund_amount').optional({ nullable: true }).isFloat({ min: 0 }),
+  body('items.*.refund_amount').optional({ nullable: true }).isFloat({ min: 0, max: 999999 }),
 ], validate, ctrl.create);
 
 router.get('/:id', [param('id').isUUID()], validate, ctrl.getOne);

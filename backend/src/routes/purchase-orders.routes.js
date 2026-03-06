@@ -35,6 +35,9 @@ router.patch('/:id/status', requireMinRole('admin'), [
   body('status').isIn(['submitted', 'partially_received', 'received', 'cancelled']).withMessage('Invalid status'),
 ], validate, ctrl.updateStatus);
 
+// Staff can receive goods against a submitted or partially-received PO.
+// Intentionally lower than the 'admin' required to create the PO: warehouse
+// staff receive deliveries without needing order-creation privileges.
 router.post('/:id/receive', requireMinRole('staff'), [
   param('id').isUUID(),
   body('note').optional({ nullable: true }).trim(),

@@ -10,7 +10,7 @@ const ctrl = require('../controllers/payments.controller');
 router.use(authenticate);
 
 // GET /api/payments/order/:orderId
-router.get('/order/:orderId', [param('orderId').isUUID()], validate, ctrl.listForOrder);
+router.get('/order/:orderId', requireMinRole('staff'), [param('orderId').isUUID()], validate, ctrl.listForOrder);
 
 // POST /api/payments/order/:orderId
 router.post('/order/:orderId', requireMinRole('staff'), [

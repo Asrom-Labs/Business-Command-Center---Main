@@ -24,6 +24,9 @@ const insertLedgerEntry = async (client, entry) => {
   const { productId, variantId, locationId, changeQty, movementType, referenceId, note, createdBy } = entry;
 
   if (changeQty < 0) {
+    // Advisory lock per product+location — serializes concurrent negative movements
+    // and closes the TOCTOU gap under PostgreSQL READ COMMITTED isolation.
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1 || $2))`, [productId, locationId]);
     const current = await getStockOnHand(client, productId, variantId, locationId);
     if (current + changeQty < 0) {
       const err = new Error(
