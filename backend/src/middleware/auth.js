@@ -1,16 +1,19 @@
 'use strict';
 
 const jwt = require('jsonwebtoken');
+const { pool } = require('../db/pool');
 
 /**
  * Authenticate requests by verifying the Bearer JWT token.
  * Attaches req.user = { id, org_id, role, name } on success.
+ * Performs a live DB check to reject tokens for deactivated accounts.
  */
-const authenticate = (req, res, next) => {
+const authenticate = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({
       success: false,
+      data: null,
       error: 'UNAUTHENTICATED',
       message: 'Authentication token required',
     });
@@ -18,7 +21,18 @@ const authenticate = (req, res, next) => {
 
   const token = authHeader.slice(7);
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+
+    const userCheck = await pool.query('SELECT active FROM users WHERE id = $1', [decoded.sub]);
+    if (!userCheck.rows.length || !userCheck.rows[0].active) {
+      return res.status(401).json({
+        success: false,
+        data: null,
+        error: 'INVALID_TOKEN',
+        message: 'Account is deactivated or does not exist',
+      });
+    }
+
     req.user = {
       id: decoded.sub,
       org_id: decoded.org,
@@ -29,6 +43,7 @@ const authenticate = (req, res, next) => {
   } catch (err) {
     return res.status(401).json({
       success: false,
+      data: null,
       error: 'INVALID_TOKEN',
       message: 'Token is invalid or expired',
     });
@@ -42,10 +57,10 @@ const ROLE_HIERARCHY = { readonly: 1, staff: 2, admin: 3, owner: 4 };
  */
 const requireRole = (...allowedRoles) => (req, res, next) => {
   if (!req.user) {
-    return res.status(401).json({ success: false, error: 'UNAUTHENTICATED', message: 'Not authenticated' });
+    return res.status(401).json({ success: false, data: null, error: 'UNAUTHENTICATED', message: 'Not authenticated' });
   }
   if (!allowedRoles.includes(req.user.role)) {
-    return res.status(403).json({ success: false, error: 'FORBIDDEN', message: 'Insufficient permissions' });
+    return res.status(403).json({ success: false, data: null, error: 'FORBIDDEN', message: 'Insufficient permissions' });
   }
   next();
 };
@@ -55,12 +70,12 @@ const requireRole = (...allowedRoles) => (req, res, next) => {
  */
 const requireMinRole = (minRole) => (req, res, next) => {
   if (!req.user) {
-    return res.status(401).json({ success: false, error: 'UNAUTHENTICATED', message: 'Not authenticated' });
+    return res.status(401).json({ success: false, data: null, error: 'UNAUTHENTICATED', message: 'Not authenticated' });
   }
   const userLevel = ROLE_HIERARCHY[req.user.role] || 0;
   const requiredLevel = ROLE_HIERARCHY[minRole] || 0;
   if (userLevel < requiredLevel) {
-    return res.status(403).json({ success: false, error: 'FORBIDDEN', message: 'Insufficient permissions' });
+    return res.status(403).json({ success: false, data: null, error: 'FORBIDDEN', message: 'Insufficient permissions' });
   }
   next();
 };

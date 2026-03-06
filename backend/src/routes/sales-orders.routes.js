@@ -37,7 +37,7 @@ router.get('/:id', [param('id').isUUID()], validate, ctrl.getOne);
 
 router.patch('/:id/status', requireMinRole('staff'), [
   param('id').isUUID(),
-  body('status').isIn(['pending', 'partially_paid', 'paid', 'processing', 'shipped', 'delivered', 'cancelled']).withMessage('Invalid status'),
+  body('status').isIn(['pending', 'processing', 'shipped', 'delivered', 'cancelled']).withMessage('Invalid status'),
 ], validate, ctrl.updateStatus);
 
 module.exports = router;

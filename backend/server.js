@@ -2,12 +2,26 @@
 
 require('dotenv').config();
 
+// ── S08 + B08: Startup environment variable validation ───────────────────────
+const REQUIRED_ENV = ['DATABASE_URL', 'JWT_SECRET'];
+const missing = REQUIRED_ENV.filter((k) => !process.env[k]);
+if (missing.length) {
+  console.error(`FATAL: Missing required environment variables: ${missing.join(', ')}`);
+  process.exit(1);
+}
+if (process.env.JWT_SECRET.length < 32) {
+  console.error('FATAL: JWT_SECRET is missing or too short — minimum 32 characters required. Use a random 64-character string in production.');
+  process.exit(1);
+}
+
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const crypto = require('crypto');
 
+const { pool } = require('./src/db/pool');
 const { errorHandler } = require('./src/middleware/errorHandler');
 
 const authRoutes          = require('./src/routes/auth.routes');
@@ -28,6 +42,7 @@ const expenseRoutes       = require('./src/routes/expenses.routes');
 const stockRoutes         = require('./src/routes/stock.routes');
 const paymentRoutes       = require('./src/routes/payments.routes');
 const reportRoutes        = require('./src/routes/reports.routes');
+const auditLogRoutes      = require('./src/routes/audit-log.routes');
 
 const app = express();
 
@@ -50,7 +65,7 @@ app.use(
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 500,
   standardHeaders: true,
   legacyHeaders: false,
@@ -66,16 +81,35 @@ const authLimiter = rateLimit({
 
 app.use(globalLimiter);
 
-// ── Logging ───────────────────────────────────────────────────────────────────
+// ── S12: Request ID middleware ────────────────────────────────────────────────
+app.use((req, res, next) => {
+  const requestId = req.headers['x-request-id'] || crypto.randomUUID();
+  req.requestId = requestId;
+  res.setHeader('X-Request-ID', requestId);
+  next();
+});
+
+// ── S12: Conditional logging ──────────────────────────────────────────────────
 if (process.env.NODE_ENV !== 'test') {
-  app.use(morgan('dev'));
+  const morganFormat = process.env.NODE_ENV === 'production' ? 'combined' : 'dev';
+  app.use(morgan(morganFormat));
 }
 
 // ── Body parsing ──────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '1mb' }));
 
-// ── Health check ──────────────────────────────────────────────────────────────
-app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+// ── S05: Health check with DB probe ──────────────────────────────────────────
+app.get('/health', async (req, res) => {
+  const start = Date.now();
+  try {
+    await pool.query('SELECT 1');
+    const latencyMs = Date.now() - start;
+    return res.json({ status: 'ok', db: 'ok', latencyMs, timestamp: new Date().toISOString() });
+  } catch (err) {
+    const latencyMs = Date.now() - start;
+    return res.status(503).json({ status: 'error', db: 'unreachable', latencyMs, timestamp: new Date().toISOString() });
+  }
+});
 
 // ── API Routes ────────────────────────────────────────────────────────────────
 const API = '/api';
@@ -98,19 +132,51 @@ app.use(`${API}/expenses`,       expenseRoutes);
 app.use(`${API}/stock`,          stockRoutes);
 app.use(`${API}/payments`,       paymentRoutes);
 app.use(`${API}/reports`,        reportRoutes);
+app.use(`${API}/audit-log`,      auditLogRoutes);
 
 // ── 404 handler ───────────────────────────────────────────────────────────────
 app.use((req, res) => {
-  res.status(404).json({ success: false, error: 'NOT_FOUND', message: `Route ${req.method} ${req.path} not found` });
+  res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: `Route ${req.method} ${req.path} not found` });
 });
 
 // ── Global error handler ──────────────────────────────────────────────────────
 app.use(errorHandler);
 
+// ── S06 + S07: Graceful shutdown and crash handlers ──────────────────────────
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled promise rejection:', reason);
+  process.exit(1);
+});
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`BCC API running on port ${PORT} [${process.env.NODE_ENV || 'development'}]`);
 });
+
+const shutdown = (signal) => {
+  console.log(`${signal} received, shutting down gracefully...`);
+  server.close(async () => {
+    try {
+      await pool.end();
+      console.log('Database pool closed.');
+    } catch (err) {
+      console.error('Error closing pool:', err.message);
+    }
+    process.exit(0);
+  });
+  setTimeout(() => {
+    console.error('Forced shutdown after 10s timeout.');
+    process.exit(1);
+  }, 10000);
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 module.exports = app;

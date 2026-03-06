@@ -43,7 +43,7 @@ const create = async (req, res, next) => {
 const getOne = async (req, res, next) => {
   try {
     const custRes = await pool.query(
-      `SELECT * FROM customers WHERE id = $1 AND organization_id = $2`, [req.params.id, req.user.org_id]
+      `SELECT * FROM customers WHERE id = $1 AND organization_id = $2 AND active = TRUE`, [req.params.id, req.user.org_id]
     );
     if (!custRes.rows.length) {
       return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Customer not found' });
@@ -64,7 +64,7 @@ const getOne = async (req, res, next) => {
 const update = async (req, res, next) => {
   try {
     const chk = await pool.query(
-      `SELECT id FROM customers WHERE id = $1 AND organization_id = $2`, [req.params.id, req.user.org_id]
+      `SELECT id FROM customers WHERE id = $1 AND organization_id = $2 AND active = TRUE`, [req.params.id, req.user.org_id]
     );
     if (!chk.rows.length) {
       return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Customer not found' });
@@ -93,7 +93,7 @@ const update = async (req, res, next) => {
 const remove = async (req, res, next) => {
   try {
     const chk = await pool.query(
-      `SELECT id FROM customers WHERE id = $1 AND organization_id = $2`, [req.params.id, req.user.org_id]
+      `SELECT id FROM customers WHERE id = $1 AND organization_id = $2 AND active = TRUE`, [req.params.id, req.user.org_id]
     );
     if (!chk.rows.length) {
       return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Customer not found' });

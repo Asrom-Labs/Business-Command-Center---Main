@@ -45,7 +45,7 @@ const create = async (req, res, next) => {
 const getOne = async (req, res, next) => {
   try {
     const result = await pool.query(
-      `SELECT * FROM branches WHERE id = $1 AND organization_id = $2`,
+      `SELECT * FROM branches WHERE id = $1 AND organization_id = $2 AND active = TRUE`,
       [req.params.id, req.user.org_id]
     );
     if (!result.rows.length) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Branch not found' });
@@ -55,7 +55,7 @@ const getOne = async (req, res, next) => {
 
 const update = async (req, res, next) => {
   try {
-    const existing = await pool.query(`SELECT id FROM branches WHERE id = $1 AND organization_id = $2`, [req.params.id, req.user.org_id]);
+    const existing = await pool.query(`SELECT id FROM branches WHERE id = $1 AND organization_id = $2 AND active = TRUE`, [req.params.id, req.user.org_id]);
     if (!existing.rows.length) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Branch not found' });
 
     const { name, city } = req.body;

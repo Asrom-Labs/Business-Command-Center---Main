@@ -11,7 +11,7 @@ const list = async (req, res, next) => {
     const search = req.query.search ? `%${req.query.search}%` : null;
     const branchId = req.query.branch_id || null;
 
-    let where = 'WHERE b.organization_id = $1';
+    let where = 'WHERE b.organization_id = $1 AND l.active = TRUE AND b.active = TRUE';
     const values = [req.user.org_id];
     let idx = 2;
 
@@ -39,7 +39,7 @@ const list = async (req, res, next) => {
 const create = async (req, res, next) => {
   try {
     const { branch_id, name, type } = req.body;
-    const branchCheck = await pool.query(`SELECT id FROM branches WHERE id = $1 AND organization_id = $2`, [branch_id, req.user.org_id]);
+    const branchCheck = await pool.query(`SELECT id FROM branches WHERE id = $1 AND organization_id = $2 AND active = TRUE`, [branch_id, req.user.org_id]);
     if (!branchCheck.rows.length) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Branch not found in your organization' });
 
     const result = await pool.query(
@@ -54,7 +54,7 @@ const create = async (req, res, next) => {
 const getOne = async (req, res, next) => {
   try {
     const result = await pool.query(
-      `SELECT l.*, b.name AS branch_name FROM locations l JOIN branches b ON b.id = l.branch_id WHERE l.id = $1 AND b.organization_id = $2`,
+      `SELECT l.*, b.name AS branch_name FROM locations l JOIN branches b ON b.id = l.branch_id WHERE l.id = $1 AND b.organization_id = $2 AND l.active = TRUE`,
       [req.params.id, req.user.org_id]
     );
     if (!result.rows.length) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Location not found' });
@@ -65,7 +65,7 @@ const getOne = async (req, res, next) => {
 const update = async (req, res, next) => {
   try {
     const check = await pool.query(
-      `SELECT l.id FROM locations l JOIN branches b ON b.id = l.branch_id WHERE l.id = $1 AND b.organization_id = $2`,
+      `SELECT l.id FROM locations l JOIN branches b ON b.id = l.branch_id WHERE l.id = $1 AND b.organization_id = $2 AND l.active = TRUE`,
       [req.params.id, req.user.org_id]
     );
     if (!check.rows.length) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Location not found' });
@@ -87,13 +87,13 @@ const update = async (req, res, next) => {
 const remove = async (req, res, next) => {
   try {
     const check = await pool.query(
-      `SELECT l.id FROM locations l JOIN branches b ON b.id = l.branch_id WHERE l.id = $1 AND b.organization_id = $2`,
+      `SELECT l.id FROM locations l JOIN branches b ON b.id = l.branch_id WHERE l.id = $1 AND b.organization_id = $2 AND l.active = TRUE`,
       [req.params.id, req.user.org_id]
     );
     if (!check.rows.length) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Location not found' });
-    await pool.query(`DELETE FROM locations WHERE id = $1`, [req.params.id]);
+    await pool.query(`UPDATE locations SET active = FALSE, updated_at = NOW() WHERE id = $1`, [req.params.id]);
     await auditService.log({ client: pool, orgId: req.user.org_id, userId: req.user.id, action: 'delete', entity: 'locations', entityId: req.params.id });
-    return res.json({ success: true, data: null, message: 'Location deleted' });
+    return res.json({ success: true, data: null, message: 'Location deactivated' });
   } catch (err) { next(err); }
 };
 

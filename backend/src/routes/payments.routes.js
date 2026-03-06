@@ -20,4 +20,7 @@ router.post('/order/:orderId', requireMinRole('staff'), [
   body('note').optional({ nullable: true }).trim(),
 ], validate, ctrl.create);
 
+// GET /api/payments/:id
+router.get('/:id', requireMinRole('staff'), [param('id').isUUID()], validate, ctrl.getOne);
+
 module.exports = router;

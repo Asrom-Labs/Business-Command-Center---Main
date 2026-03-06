@@ -15,10 +15,12 @@ router.get('/', [
   qv('low_stock').optional().isBoolean(),
 ], validate, ctrl.getStock);
 
+router.get('/summary', requireMinRole('staff'), ctrl.getSummary);
+
 router.get('/ledger', [
   qv('product_id').optional().isUUID(),
   qv('location_id').optional().isUUID(),
-  qv('movement_type').optional().isIn(['purchase', 'sale', 'transfer_in', 'transfer_out', 'return', 'adjustment']),
+  qv('movement_type').optional().isIn(['purchase', 'sale', 'transfer_in', 'transfer_out', 'return', 'adjustment', 'cancellation']),
   qv('page').optional().isInt({ min: 1 }),
   qv('limit').optional().isInt({ min: 1, max: 200 }),
 ], validate, ctrl.getLedger);

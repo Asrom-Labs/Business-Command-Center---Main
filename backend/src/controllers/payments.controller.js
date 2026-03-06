@@ -103,4 +103,21 @@ const create = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { listForOrder, create };
+const getOne = async (req, res, next) => {
+  try {
+    const orgId = req.user.org_id;
+    const result = await pool.query(
+      `SELECT p.*, u.name AS created_by_name
+       FROM payments p
+       LEFT JOIN users u ON u.id = p.created_by
+       WHERE p.id = $1 AND p.organization_id = $2`,
+      [req.params.id, orgId]
+    );
+    if (!result.rows.length) {
+      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Payment not found' });
+    }
+    return res.json({ success: true, data: result.rows[0], message: 'Success' });
+  } catch (err) { next(err); }
+};
+
+module.exports = { listForOrder, create, getOne };

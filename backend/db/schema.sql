@@ -1,9 +1,11 @@
 -- ============================================================
--- Business Command Center — Production PostgreSQL Schema v1.2
+-- Business Command Center — Production PostgreSQL Schema v1.3
 -- All PKs: UUID with gen_random_uuid()
 -- All timestamps: TIMESTAMPTZ DEFAULT NOW()
 -- All monetary values: NUMERIC(12,2)
 -- All FKs: ON DELETE RESTRICT
+-- IF NOT EXISTS on every CREATE TABLE — safe to re-run on an existing DB
+-- B11: locations.active added, cancellation movement type added, bundles removed
 -- ============================================================
 
 -- Enable UUID generation
@@ -13,7 +15,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- ORGANIZATIONAL LAYER
 -- ============================================================
 
-CREATE TABLE organizations (
+CREATE TABLE IF NOT EXISTS organizations (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name        VARCHAR(255)  NOT NULL,
   country     VARCHAR(100),
@@ -22,7 +24,7 @@ CREATE TABLE organizations (
   updated_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE branches (
+CREATE TABLE IF NOT EXISTS branches (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID          NOT NULL REFERENCES organizations(id) ON DELETE RESTRICT,
   name            VARCHAR(255)  NOT NULL,
@@ -32,22 +34,23 @@ CREATE TABLE branches (
   updated_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE locations (
+CREATE TABLE IF NOT EXISTS locations (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   branch_id  UUID         NOT NULL REFERENCES branches(id) ON DELETE RESTRICT,
   name       VARCHAR(255) NOT NULL,
   type       VARCHAR(20)  NOT NULL CHECK (type IN ('warehouse', 'store')),
+  active     BOOLEAN      NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE roles (
+CREATE TABLE IF NOT EXISTS roles (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name       VARCHAR(50)  NOT NULL UNIQUE CHECK (name IN ('owner', 'admin', 'staff', 'readonly')),
   created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID         NOT NULL REFERENCES organizations(id) ON DELETE RESTRICT,
   name            VARCHAR(255) NOT NULL,
@@ -59,7 +62,7 @@ CREATE TABLE users (
   UNIQUE (email)
 );
 
-CREATE TABLE user_roles (
+CREATE TABLE IF NOT EXISTS user_roles (
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   role_id UUID NOT NULL REFERENCES roles(id) ON DELETE RESTRICT,
   PRIMARY KEY (user_id, role_id)
@@ -69,7 +72,7 @@ CREATE TABLE user_roles (
 -- PRODUCT LAYER
 -- ============================================================
 
-CREATE TABLE categories (
+CREATE TABLE IF NOT EXISTS categories (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID         NOT NULL REFERENCES organizations(id) ON DELETE RESTRICT,
   name            VARCHAR(255) NOT NULL,
@@ -78,7 +81,7 @@ CREATE TABLE categories (
   UNIQUE (organization_id, name)
 );
 
-CREATE TABLE units (
+CREATE TABLE IF NOT EXISTS units (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID        REFERENCES organizations(id) ON DELETE RESTRICT,
   name            VARCHAR(100) NOT NULL,
@@ -86,7 +89,7 @@ CREATE TABLE units (
   UNIQUE (organization_id, name)
 );
 
-CREATE TABLE products (
+CREATE TABLE IF NOT EXISTS products (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id     UUID          NOT NULL REFERENCES organizations(id) ON DELETE RESTRICT,
   category_id         UUID          REFERENCES categories(id) ON DELETE RESTRICT,
@@ -103,10 +106,10 @@ CREATE TABLE products (
 );
 
 -- Partial unique indexes for SKU/barcode (only when NOT NULL)
-CREATE UNIQUE INDEX products_sku_org_unique     ON products(organization_id, sku)     WHERE sku IS NOT NULL;
-CREATE UNIQUE INDEX products_barcode_org_unique ON products(organization_id, barcode) WHERE barcode IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS products_sku_org_unique     ON products(organization_id, sku)     WHERE sku IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS products_barcode_org_unique ON products(organization_id, barcode) WHERE barcode IS NOT NULL;
 
-CREATE TABLE product_variants (
+CREATE TABLE IF NOT EXISTS product_variants (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   product_id UUID         NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
   name       VARCHAR(255) NOT NULL,
@@ -119,35 +122,20 @@ CREATE TABLE product_variants (
   updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
-CREATE UNIQUE INDEX product_variants_sku_product_unique     ON product_variants(product_id, sku)     WHERE sku IS NOT NULL;
-CREATE UNIQUE INDEX product_variants_barcode_product_unique ON product_variants(product_id, barcode) WHERE barcode IS NOT NULL;
-
-CREATE TABLE bundles (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT UNIQUE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE bundle_items (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  bundle_id  UUID    NOT NULL REFERENCES bundles(id)  ON DELETE RESTRICT,
-  product_id UUID    NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
-  quantity   INTEGER NOT NULL CHECK (quantity > 0),
-  UNIQUE (bundle_id, product_id)
-);
+CREATE UNIQUE INDEX IF NOT EXISTS product_variants_sku_product_unique     ON product_variants(product_id, sku)     WHERE sku IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS product_variants_barcode_product_unique ON product_variants(product_id, barcode) WHERE barcode IS NOT NULL;
 
 -- ============================================================
 -- STOCK LEDGER — The Accuracy Engine (append-only, never UPDATE)
 -- ============================================================
 
-CREATE TABLE stock_ledger (
+CREATE TABLE IF NOT EXISTS stock_ledger (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   product_id    UUID         NOT NULL REFERENCES products(id)         ON DELETE RESTRICT,
   variant_id    UUID                  REFERENCES product_variants(id) ON DELETE RESTRICT,
   location_id   UUID         NOT NULL REFERENCES locations(id)        ON DELETE RESTRICT,
   quantity_change INTEGER      NOT NULL,  -- positive = in, negative = out
-  movement_type VARCHAR(30)  NOT NULL CHECK (movement_type IN ('purchase','sale','transfer_in','transfer_out','return','adjustment')),
+  movement_type VARCHAR(30)  NOT NULL CHECK (movement_type IN ('purchase','sale','transfer_in','transfer_out','return','adjustment','cancellation')),
   reference_id  UUID,                   -- points to GoodsReceipt.id, SalesOrder.id, Transfer.id, or Return.id
   note          TEXT,
   created_by    UUID                  REFERENCES users(id) ON DELETE RESTRICT,
@@ -158,7 +146,7 @@ CREATE TABLE stock_ledger (
 -- TRANSFER LAYER
 -- ============================================================
 
-CREATE TABLE transfers (
+CREATE TABLE IF NOT EXISTS transfers (
   id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id  UUID         NOT NULL REFERENCES organizations(id) ON DELETE RESTRICT,
   from_location_id UUID         NOT NULL REFERENCES locations(id)     ON DELETE RESTRICT,
@@ -170,7 +158,7 @@ CREATE TABLE transfers (
   updated_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE transfer_items (
+CREATE TABLE IF NOT EXISTS transfer_items (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   transfer_id UUID    NOT NULL REFERENCES transfers(id)         ON DELETE RESTRICT,
   product_id  UUID    NOT NULL REFERENCES products(id)          ON DELETE RESTRICT,
@@ -183,7 +171,7 @@ CREATE TABLE transfer_items (
 -- CUSTOMER LAYER
 -- ============================================================
 
-CREATE TABLE customers (
+CREATE TABLE IF NOT EXISTS customers (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID          NOT NULL REFERENCES organizations(id) ON DELETE RESTRICT,
   name            VARCHAR(255)  NOT NULL,
@@ -196,7 +184,7 @@ CREATE TABLE customers (
   updated_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE customer_notes (
+CREATE TABLE IF NOT EXISTS customer_notes (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE RESTRICT,
   note        TEXT NOT NULL,
@@ -208,7 +196,7 @@ CREATE TABLE customer_notes (
 -- SUPPLIER / PURCHASING LAYER
 -- ============================================================
 
-CREATE TABLE suppliers (
+CREATE TABLE IF NOT EXISTS suppliers (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID         NOT NULL REFERENCES organizations(id) ON DELETE RESTRICT,
   name            VARCHAR(255) NOT NULL,
@@ -221,7 +209,7 @@ CREATE TABLE suppliers (
   updated_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE purchase_orders (
+CREATE TABLE IF NOT EXISTS purchase_orders (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID         NOT NULL REFERENCES organizations(id) ON DELETE RESTRICT,
   supplier_id     UUID         NOT NULL REFERENCES suppliers(id)     ON DELETE RESTRICT,
@@ -234,7 +222,7 @@ CREATE TABLE purchase_orders (
   updated_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE purchase_order_items (
+CREATE TABLE IF NOT EXISTS purchase_order_items (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   purchase_order_id UUID          NOT NULL REFERENCES purchase_orders(id)   ON DELETE RESTRICT,
   product_id        UUID          NOT NULL REFERENCES products(id)           ON DELETE RESTRICT,
@@ -244,7 +232,7 @@ CREATE TABLE purchase_order_items (
   created_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE goods_receipts (
+CREATE TABLE IF NOT EXISTS goods_receipts (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id   UUID        NOT NULL REFERENCES organizations(id)   ON DELETE RESTRICT,
   purchase_order_id UUID        NOT NULL REFERENCES purchase_orders(id) ON DELETE RESTRICT,
@@ -254,7 +242,7 @@ CREATE TABLE goods_receipts (
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE goods_receipt_items (
+CREATE TABLE IF NOT EXISTS goods_receipt_items (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   goods_receipt_id      UUID    NOT NULL REFERENCES goods_receipts(id)       ON DELETE RESTRICT,
   purchase_order_item_id UUID   NOT NULL REFERENCES purchase_order_items(id) ON DELETE RESTRICT,
@@ -264,7 +252,7 @@ CREATE TABLE goods_receipt_items (
   created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE supplier_payments (
+CREATE TABLE IF NOT EXISTS supplier_payments (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID          NOT NULL REFERENCES organizations(id) ON DELETE RESTRICT,
   supplier_id     UUID          NOT NULL REFERENCES suppliers(id)     ON DELETE RESTRICT,
@@ -281,7 +269,7 @@ CREATE TABLE supplier_payments (
 -- SALES LAYER
 -- ============================================================
 
-CREATE TABLE sales_orders (
+CREATE TABLE IF NOT EXISTS sales_orders (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID          NOT NULL REFERENCES organizations(id) ON DELETE RESTRICT,
   customer_id     UUID                   REFERENCES customers(id)     ON DELETE RESTRICT,
@@ -299,7 +287,7 @@ CREATE TABLE sales_orders (
   updated_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE sales_order_items (
+CREATE TABLE IF NOT EXISTS sales_order_items (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   sales_order_id UUID          NOT NULL REFERENCES sales_orders(id)     ON DELETE RESTRICT,
   product_id     UUID          NOT NULL REFERENCES products(id)          ON DELETE RESTRICT,
@@ -311,7 +299,7 @@ CREATE TABLE sales_order_items (
   created_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE payments (
+CREATE TABLE IF NOT EXISTS payments (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID          NOT NULL REFERENCES organizations(id) ON DELETE RESTRICT,
   sales_order_id UUID          NOT NULL REFERENCES sales_orders(id)   ON DELETE RESTRICT,
@@ -327,13 +315,13 @@ CREATE TABLE payments (
 -- RETURNS LAYER
 -- ============================================================
 
-CREATE TABLE return_reasons (
+CREATE TABLE IF NOT EXISTS return_reasons (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   reason     VARCHAR(255) NOT NULL UNIQUE,
   created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE returns (
+CREATE TABLE IF NOT EXISTS returns (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID          NOT NULL REFERENCES organizations(id) ON DELETE RESTRICT,
   sales_order_id UUID          NOT NULL REFERENCES sales_orders(id)   ON DELETE RESTRICT,
@@ -344,7 +332,7 @@ CREATE TABLE returns (
   created_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE return_items (
+CREATE TABLE IF NOT EXISTS return_items (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   return_id           UUID          NOT NULL REFERENCES returns(id)           ON DELETE RESTRICT,
   sales_order_item_id UUID          NOT NULL REFERENCES sales_order_items(id) ON DELETE RESTRICT,
@@ -359,7 +347,7 @@ CREATE TABLE return_items (
 -- EXPENSE LAYER
 -- ============================================================
 
-CREATE TABLE expense_categories (
+CREATE TABLE IF NOT EXISTS expense_categories (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID         NOT NULL REFERENCES organizations(id) ON DELETE RESTRICT,
   name            VARCHAR(255) NOT NULL,
@@ -368,7 +356,7 @@ CREATE TABLE expense_categories (
   UNIQUE (organization_id, name)
 );
 
-CREATE TABLE expenses (
+CREATE TABLE IF NOT EXISTS expenses (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID          NOT NULL REFERENCES organizations(id)     ON DELETE RESTRICT,
   category_id     UUID          NOT NULL REFERENCES expense_categories(id) ON DELETE RESTRICT,
@@ -386,7 +374,7 @@ CREATE TABLE expenses (
 -- AUDIT LAYER
 -- ============================================================
 
-CREATE TABLE audit_log (
+CREATE TABLE IF NOT EXISTS audit_log (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID         NOT NULL REFERENCES organizations(id) ON DELETE RESTRICT,
   user_id         UUID                  REFERENCES users(id)         ON DELETE RESTRICT,
@@ -402,100 +390,101 @@ CREATE TABLE audit_log (
 -- ============================================================
 
 -- Branches
-CREATE INDEX idx_branches_org ON branches(organization_id);
+CREATE INDEX IF NOT EXISTS idx_branches_org ON branches(organization_id);
 
 -- Locations
-CREATE INDEX idx_locations_branch ON locations(branch_id);
+CREATE INDEX IF NOT EXISTS idx_locations_branch ON locations(branch_id);
+CREATE INDEX IF NOT EXISTS idx_locations_active  ON locations(branch_id, active);
 
 -- Users
-CREATE INDEX idx_users_org   ON users(organization_id);
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_active ON users(organization_id, active);
+CREATE INDEX IF NOT EXISTS idx_users_org    ON users(organization_id);
+CREATE INDEX IF NOT EXISTS idx_users_email  ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_active ON users(organization_id, active);
 
 -- Categories
-CREATE INDEX idx_categories_org ON categories(organization_id);
-CREATE INDEX idx_expense_categories_org ON expense_categories(organization_id);
+CREATE INDEX IF NOT EXISTS idx_categories_org         ON categories(organization_id);
+CREATE INDEX IF NOT EXISTS idx_expense_categories_org ON expense_categories(organization_id);
 
 -- Products
-CREATE INDEX idx_products_org      ON products(organization_id);
-CREATE INDEX idx_products_category ON products(category_id);
-CREATE INDEX idx_products_active   ON products(organization_id, active);
+CREATE INDEX IF NOT EXISTS idx_products_org      ON products(organization_id);
+CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
+CREATE INDEX IF NOT EXISTS idx_products_active   ON products(organization_id, active);
 
 -- Product variants
-CREATE INDEX idx_product_variants_product ON product_variants(product_id);
-CREATE INDEX idx_product_variants_active  ON product_variants(product_id, active);
+CREATE INDEX IF NOT EXISTS idx_product_variants_product ON product_variants(product_id);
+CREATE INDEX IF NOT EXISTS idx_product_variants_active  ON product_variants(product_id, active);
 
 -- Stock ledger (critical for performance)
-CREATE INDEX idx_stock_ledger_product          ON stock_ledger(product_id);
-CREATE INDEX idx_stock_ledger_variant          ON stock_ledger(variant_id);
-CREATE INDEX idx_stock_ledger_location         ON stock_ledger(location_id);
-CREATE INDEX idx_stock_ledger_product_location ON stock_ledger(product_id, location_id);
-CREATE INDEX idx_stock_ledger_movement_type    ON stock_ledger(movement_type);
-CREATE INDEX idx_stock_ledger_created_at       ON stock_ledger(created_at);
-CREATE INDEX idx_stock_ledger_reference        ON stock_ledger(reference_id);
+CREATE INDEX IF NOT EXISTS idx_stock_ledger_product          ON stock_ledger(product_id);
+CREATE INDEX IF NOT EXISTS idx_stock_ledger_variant          ON stock_ledger(variant_id);
+CREATE INDEX IF NOT EXISTS idx_stock_ledger_location         ON stock_ledger(location_id);
+CREATE INDEX IF NOT EXISTS idx_stock_ledger_product_location ON stock_ledger(product_id, location_id);
+CREATE INDEX IF NOT EXISTS idx_stock_ledger_movement_type    ON stock_ledger(movement_type);
+CREATE INDEX IF NOT EXISTS idx_stock_ledger_created_at       ON stock_ledger(created_at);
+CREATE INDEX IF NOT EXISTS idx_stock_ledger_reference        ON stock_ledger(reference_id);
 
 -- Transfers
-CREATE INDEX idx_transfers_org    ON transfers(organization_id);
-CREATE INDEX idx_transfers_status ON transfers(status);
-CREATE INDEX idx_transfer_items_transfer ON transfer_items(transfer_id);
-CREATE INDEX idx_transfer_items_product  ON transfer_items(product_id);
+CREATE INDEX IF NOT EXISTS idx_transfers_org         ON transfers(organization_id);
+CREATE INDEX IF NOT EXISTS idx_transfers_status      ON transfers(status);
+CREATE INDEX IF NOT EXISTS idx_transfer_items_transfer ON transfer_items(transfer_id);
+CREATE INDEX IF NOT EXISTS idx_transfer_items_product  ON transfer_items(product_id);
 
 -- Customers
-CREATE INDEX idx_customers_org ON customers(organization_id);
+CREATE INDEX IF NOT EXISTS idx_customers_org ON customers(organization_id);
 
 -- Customer notes
-CREATE INDEX idx_customer_notes_customer ON customer_notes(customer_id);
+CREATE INDEX IF NOT EXISTS idx_customer_notes_customer ON customer_notes(customer_id);
 
 -- Suppliers
-CREATE INDEX idx_suppliers_org ON suppliers(organization_id);
+CREATE INDEX IF NOT EXISTS idx_suppliers_org ON suppliers(organization_id);
 
 -- Purchase orders
-CREATE INDEX idx_purchase_orders_org      ON purchase_orders(organization_id);
-CREATE INDEX idx_purchase_orders_supplier ON purchase_orders(supplier_id);
-CREATE INDEX idx_purchase_orders_status   ON purchase_orders(status);
-CREATE INDEX idx_purchase_orders_created  ON purchase_orders(created_at);
-CREATE INDEX idx_purchase_order_items_po  ON purchase_order_items(purchase_order_id);
+CREATE INDEX IF NOT EXISTS idx_purchase_orders_org      ON purchase_orders(organization_id);
+CREATE INDEX IF NOT EXISTS idx_purchase_orders_supplier ON purchase_orders(supplier_id);
+CREATE INDEX IF NOT EXISTS idx_purchase_orders_status   ON purchase_orders(status);
+CREATE INDEX IF NOT EXISTS idx_purchase_orders_created  ON purchase_orders(created_at);
+CREATE INDEX IF NOT EXISTS idx_purchase_order_items_po  ON purchase_order_items(purchase_order_id);
 
 -- Goods receipts
-CREATE INDEX idx_goods_receipts_org      ON goods_receipts(organization_id);
-CREATE INDEX idx_goods_receipts_po       ON goods_receipts(purchase_order_id);
-CREATE INDEX idx_goods_receipt_items_gr  ON goods_receipt_items(goods_receipt_id);
-CREATE INDEX idx_goods_receipt_items_poi ON goods_receipt_items(purchase_order_item_id);
+CREATE INDEX IF NOT EXISTS idx_goods_receipts_org      ON goods_receipts(organization_id);
+CREATE INDEX IF NOT EXISTS idx_goods_receipts_po       ON goods_receipts(purchase_order_id);
+CREATE INDEX IF NOT EXISTS idx_goods_receipt_items_gr  ON goods_receipt_items(goods_receipt_id);
+CREATE INDEX IF NOT EXISTS idx_goods_receipt_items_poi ON goods_receipt_items(purchase_order_item_id);
 
 -- Supplier payments
-CREATE INDEX idx_supplier_payments_org      ON supplier_payments(organization_id);
-CREATE INDEX idx_supplier_payments_supplier ON supplier_payments(supplier_id);
-CREATE INDEX idx_supplier_payments_date     ON supplier_payments(payment_date);
+CREATE INDEX IF NOT EXISTS idx_supplier_payments_org      ON supplier_payments(organization_id);
+CREATE INDEX IF NOT EXISTS idx_supplier_payments_supplier ON supplier_payments(supplier_id);
+CREATE INDEX IF NOT EXISTS idx_supplier_payments_date     ON supplier_payments(payment_date);
 
 -- Sales orders
-CREATE INDEX idx_sales_orders_org        ON sales_orders(organization_id);
-CREATE INDEX idx_sales_orders_customer   ON sales_orders(customer_id);
-CREATE INDEX idx_sales_orders_status     ON sales_orders(status);
-CREATE INDEX idx_sales_orders_created_at ON sales_orders(created_at);
-CREATE INDEX idx_sales_orders_channel    ON sales_orders(channel);
-CREATE INDEX idx_sales_order_items_order   ON sales_order_items(sales_order_id);
-CREATE INDEX idx_sales_order_items_product ON sales_order_items(product_id);
+CREATE INDEX IF NOT EXISTS idx_sales_orders_org        ON sales_orders(organization_id);
+CREATE INDEX IF NOT EXISTS idx_sales_orders_customer   ON sales_orders(customer_id);
+CREATE INDEX IF NOT EXISTS idx_sales_orders_status     ON sales_orders(status);
+CREATE INDEX IF NOT EXISTS idx_sales_orders_created_at ON sales_orders(created_at);
+CREATE INDEX IF NOT EXISTS idx_sales_orders_channel    ON sales_orders(channel);
+CREATE INDEX IF NOT EXISTS idx_sales_order_items_order   ON sales_order_items(sales_order_id);
+CREATE INDEX IF NOT EXISTS idx_sales_order_items_product ON sales_order_items(product_id);
 
 -- Payments
-CREATE INDEX idx_payments_org     ON payments(organization_id);
-CREATE INDEX idx_payments_order   ON payments(sales_order_id);
-CREATE INDEX idx_payments_paid_at ON payments(paid_at);
+CREATE INDEX IF NOT EXISTS idx_payments_org     ON payments(organization_id);
+CREATE INDEX IF NOT EXISTS idx_payments_order   ON payments(sales_order_id);
+CREATE INDEX IF NOT EXISTS idx_payments_paid_at ON payments(paid_at);
 
 -- Returns
-CREATE INDEX idx_returns_org          ON returns(organization_id);
-CREATE INDEX idx_returns_order        ON returns(sales_order_id);
-CREATE INDEX idx_return_items_return  ON return_items(return_id);
+CREATE INDEX IF NOT EXISTS idx_returns_org         ON returns(organization_id);
+CREATE INDEX IF NOT EXISTS idx_returns_order       ON returns(sales_order_id);
+CREATE INDEX IF NOT EXISTS idx_return_items_return ON return_items(return_id);
 
 -- Expenses
-CREATE INDEX idx_expenses_org      ON expenses(organization_id);
-CREATE INDEX idx_expenses_date     ON expenses(date);
-CREATE INDEX idx_expenses_category ON expenses(category_id);
+CREATE INDEX IF NOT EXISTS idx_expenses_org      ON expenses(organization_id);
+CREATE INDEX IF NOT EXISTS idx_expenses_date     ON expenses(date);
+CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category_id);
 
 -- Audit log
-CREATE INDEX idx_audit_log_org        ON audit_log(organization_id);
-CREATE INDEX idx_audit_log_user       ON audit_log(user_id);
-CREATE INDEX idx_audit_log_entity     ON audit_log(entity, entity_id);
-CREATE INDEX idx_audit_log_created_at ON audit_log(created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_log_org        ON audit_log(organization_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_user       ON audit_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_entity     ON audit_log(entity, entity_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log(created_at);
 
 -- ============================================================
 -- SEED DATA
@@ -506,7 +495,8 @@ INSERT INTO roles (name) VALUES
   ('owner'),
   ('admin'),
   ('staff'),
-  ('readonly');
+  ('readonly')
+ON CONFLICT DO NOTHING;
 
 -- Units of measurement
 INSERT INTO units (name) VALUES
@@ -518,7 +508,8 @@ INSERT INTO units (name) VALUES
   ('Milliliter'),
   ('Meter'),
   ('Pack'),
-  ('Dozen');
+  ('Dozen')
+ON CONFLICT DO NOTHING;
 
 -- Return reasons
 INSERT INTO return_reasons (reason) VALUES
@@ -529,4 +520,5 @@ INSERT INTO return_reasons (reason) VALUES
   ('Damaged during delivery'),
   ('Duplicate order'),
   ('Quality not acceptable'),
-  ('Other');
+  ('Other')
+ON CONFLICT DO NOTHING;

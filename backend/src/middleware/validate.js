@@ -15,6 +15,7 @@ const validate = (req, res, next) => {
     }));
     return res.status(422).json({
       success: false,
+      data: null,
       error: 'VALIDATION_ERROR',
       message: 'Validation failed',
       fields,

@@ -2,6 +2,16 @@
 
 const { pool } = require('../db/pool');
 
+const getDateRange = (req, res) => {
+  const from = req.query.from || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+  const to = req.query.to || new Date().toISOString().split('T')[0];
+  if (from > to) {
+    res.status(400).json({ success: false, data: null, error: 'VALIDATION_ERROR', message: "'from' date must be on or before 'to' date" });
+    return null;
+  }
+  return { from, to };
+};
+
 /**
  * GET /api/reports/dashboard
  * Key metrics for the current period (default: current month).
@@ -9,8 +19,9 @@ const { pool } = require('../db/pool');
 const dashboard = async (req, res, next) => {
   try {
     const orgId = req.user.org_id;
-    const from = req.query.from || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
-    const to = req.query.to || new Date().toISOString().split('T')[0];
+    const range = getDateRange(req, res);
+    if (!range) return;
+    const { from, to } = range;
 
     const [salesRes, expenseRes, returnsRes, newCustomersRes, lowStockRes, pendingPORes] = await Promise.all([
       // Sales totals
@@ -115,8 +126,9 @@ const dashboard = async (req, res, next) => {
 const salesByDay = async (req, res, next) => {
   try {
     const orgId = req.user.org_id;
-    const from = req.query.from || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
-    const to = req.query.to || new Date().toISOString().split('T')[0];
+    const range = getDateRange(req, res);
+    if (!range) return;
+    const { from, to } = range;
 
     const result = await pool.query(
       `SELECT so.created_at::DATE AS day,
@@ -139,8 +151,9 @@ const salesByDay = async (req, res, next) => {
 const topProducts = async (req, res, next) => {
   try {
     const orgId = req.user.org_id;
-    const from = req.query.from || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
-    const to = req.query.to || new Date().toISOString().split('T')[0];
+    const range = getDateRange(req, res);
+    if (!range) return;
+    const { from, to } = range;
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 10));
 
     const result = await pool.query(
@@ -168,8 +181,9 @@ const topProducts = async (req, res, next) => {
 const salesByChannel = async (req, res, next) => {
   try {
     const orgId = req.user.org_id;
-    const from = req.query.from || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
-    const to = req.query.to || new Date().toISOString().split('T')[0];
+    const range = getDateRange(req, res);
+    if (!range) return;
+    const { from, to } = range;
 
     const result = await pool.query(
       `SELECT channel,
@@ -191,8 +205,9 @@ const salesByChannel = async (req, res, next) => {
 const expensesByCategory = async (req, res, next) => {
   try {
     const orgId = req.user.org_id;
-    const from = req.query.from || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
-    const to = req.query.to || new Date().toISOString().split('T')[0];
+    const range = getDateRange(req, res);
+    if (!range) return;
+    const { from, to } = range;
 
     const result = await pool.query(
       `SELECT ec.name AS category, COALESCE(SUM(e.amount), 0) AS total

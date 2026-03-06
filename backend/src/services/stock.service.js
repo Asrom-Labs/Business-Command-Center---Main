@@ -46,21 +46,4 @@ const insertLedgerEntry = async (client, entry) => {
   );
 };
 
-/**
- * Get full stock summary for all products in an organization.
- */
-const getOrgStockSummary = async (client, orgId) => {
-  const result = await client.query(
-    `SELECT sl.product_id, sl.variant_id, sl.location_id,
-            SUM(sl.quantity_change)::INTEGER AS stock_on_hand
-     FROM stock_ledger sl
-     JOIN products p ON p.id = sl.product_id
-     WHERE p.organization_id = $1
-     GROUP BY sl.product_id, sl.variant_id, sl.location_id
-     HAVING SUM(sl.quantity_change) > 0`,
-    [orgId]
-  );
-  return result.rows;
-};
-
-module.exports = { getStockOnHand, insertLedgerEntry, getOrgStockSummary };
+module.exports = { getStockOnHand, insertLedgerEntry };

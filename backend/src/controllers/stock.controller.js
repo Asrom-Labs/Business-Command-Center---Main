@@ -11,6 +11,9 @@ const stockService = require('../services/stock.service');
  */
 const getStock = async (req, res, next) => {
   try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit) || 50));
+    const offset = (page - 1) * limit;
     const { location_id, product_id } = req.query;
     const lowStock = req.query.low_stock === 'true';
     const orgId = req.user.org_id;
@@ -20,8 +23,23 @@ const getStock = async (req, res, next) => {
     if (location_id) { w += ` AND sl.location_id = $${idx++}`; vals.push(location_id); }
     if (product_id) { w += ` AND sl.product_id = $${idx++}`; vals.push(product_id); }
 
-    let havingClause = lowStock ? 'HAVING SUM(sl.quantity_change) <= p.low_stock_threshold' : '';
+    const havingClause = lowStock ? 'HAVING SUM(sl.quantity_change) <= p.low_stock_threshold' : '';
 
+    // Count distinct groups for pagination
+    const countRes = await pool.query(
+      `SELECT COUNT(*) FROM (
+         SELECT sl.product_id, sl.variant_id, sl.location_id
+         FROM stock_ledger sl
+         JOIN products p ON p.id = sl.product_id
+         ${w}
+         GROUP BY sl.product_id, sl.variant_id, sl.location_id
+         ${havingClause}
+       ) AS t`,
+      vals
+    );
+    const total = parseInt(countRes.rows[0].count);
+
+    vals.push(limit, offset);
     const result = await pool.query(
       `SELECT sl.product_id, sl.variant_id, sl.location_id,
               p.name AS product_name, p.sku, p.low_stock_threshold,
@@ -39,10 +57,14 @@ const getStock = async (req, res, next) => {
                 p.name, p.sku, p.low_stock_threshold,
                 pv.name, l.name, b.name
        ${havingClause}
-       ORDER BY p.name ASC, l.name ASC`,
+       ORDER BY p.name ASC, l.name ASC
+       LIMIT $${idx} OFFSET $${idx + 1}`,
       vals
     );
-    return res.json({ success: true, data: result.rows, message: 'Success' });
+    return res.json({
+      success: true, data: result.rows, message: 'Success',
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
   } catch (err) { next(err); }
 };
 
@@ -140,4 +162,29 @@ const adjust = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { getStock, getLedger, adjust };
+/**
+ * GET /api/stock/summary
+ * Aggregate inventory value per product across all locations in the org.
+ * Summary logic is implemented inline. stock.service.js:getOrgStockSummary was removed in v0.4.0.
+ */
+const getSummary = async (req, res, next) => {
+  try {
+    const orgId = req.user.org_id;
+    const result = await pool.query(
+      `SELECT p.id AS product_id, p.name AS product_name, p.sku, p.cost,
+              SUM(sl.quantity_change)::INTEGER AS total_stock_on_hand,
+              (SUM(sl.quantity_change) * COALESCE(p.cost, 0))::NUMERIC(12,2) AS inventory_value
+       FROM stock_ledger sl
+       JOIN products p ON p.id = sl.product_id
+       WHERE p.organization_id = $1 AND p.active = TRUE
+       GROUP BY p.id, p.name, p.sku, p.cost
+       HAVING SUM(sl.quantity_change) > 0
+       ORDER BY p.name ASC`,
+      [orgId]
+    );
+    const totalValue = result.rows.reduce((sum, r) => sum + parseFloat(r.inventory_value || 0), 0);
+    return res.json({ success: true, data: { items: result.rows, total_inventory_value: totalValue.toFixed(2) }, message: 'Success' });
+  } catch (err) { next(err); }
+};
+
+module.exports = { getStock, getLedger, adjust, getSummary };

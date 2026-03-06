@@ -53,6 +53,11 @@ const create = async (req, res, next) => {
       if (!catChk.rows.length) return res.status(422).json({ success: false, error: 'VALIDATION_ERROR', message: 'category_id does not belong to your organization' });
     }
 
+    if (unit_id) {
+      const unitChk = await pool.query(`SELECT id FROM units WHERE id = $1 AND (organization_id = $2 OR organization_id IS NULL)`, [unit_id, req.user.org_id]);
+      if (!unitChk.rows.length) return res.status(422).json({ success: false, error: 'VALIDATION_ERROR', message: 'unit_id is not valid' });
+    }
+
     const product = await withTransaction(async (client) => {
       const result = await client.query(
         `INSERT INTO products (organization_id, category_id, unit_id, name, sku, barcode, price, cost, low_stock_threshold)
@@ -122,6 +127,11 @@ const update = async (req, res, next) => {
     if (req.body.category_id) {
       const catChk = await pool.query(`SELECT id FROM categories WHERE id = $1 AND organization_id = $2`, [req.body.category_id, orgId]);
       if (!catChk.rows.length) return res.status(422).json({ success: false, error: 'VALIDATION_ERROR', message: 'category_id does not belong to your organization' });
+    }
+
+    if (req.body.unit_id) {
+      const unitChk = await pool.query(`SELECT id FROM units WHERE id = $1 AND (organization_id = $2 OR organization_id IS NULL)`, [req.body.unit_id, orgId]);
+      if (!unitChk.rows.length) return res.status(422).json({ success: false, error: 'VALIDATION_ERROR', message: 'unit_id is not valid' });
     }
 
     const allowedFields = ['name', 'sku', 'barcode', 'price', 'cost', 'low_stock_threshold', 'category_id', 'unit_id', 'active'];

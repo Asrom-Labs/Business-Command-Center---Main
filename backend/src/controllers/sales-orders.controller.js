@@ -59,7 +59,7 @@ const create = async (req, res, next) => {
 
       // Validate customer if provided
       if (customer_id) {
-        const custChk = await client.query(`SELECT id FROM customers WHERE id = $1 AND organization_id = $2`, [customer_id, orgId]);
+        const custChk = await client.query(`SELECT id FROM customers WHERE id = $1 AND organization_id = $2 AND active = TRUE`, [customer_id, orgId]);
         if (!custChk.rows.length) {
           const err = new Error('Customer not found'); err.isAppError = true; err.statusCode = 422; err.errorCode = 'VALIDATION_ERROR'; throw err;
         }
@@ -192,9 +192,15 @@ const updateStatus = async (req, res, next) => {
       const current = chk.rows[0].status;
       const locationId = chk.rows[0].location_id;
 
+      // paid and partially_paid are set exclusively by the payments system, not manually
+      if (status === 'paid' || status === 'partially_paid') {
+        const err = new Error(`Status '${status}' is managed automatically by the payments system`);
+        err.isAppError = true; err.statusCode = 422; err.errorCode = 'BUSINESS_RULE'; throw err;
+      }
+
       const validTransitions = {
-        pending:        ['processing', 'partially_paid', 'paid', 'cancelled'],
-        partially_paid: ['paid', 'processing', 'cancelled'],
+        pending:        ['processing', 'cancelled'],
+        partially_paid: ['processing', 'cancelled'],
         paid:           ['processing', 'shipped'],
         processing:     ['shipped', 'cancelled'],
         shipped:        ['delivered'],
@@ -226,7 +232,7 @@ const updateStatus = async (req, res, next) => {
               variantId: item.variant_id,
               locationId,
               changeQty: restoreQty,
-              movementType: 'adjustment',
+              movementType: 'cancellation',
               referenceId: id,
               note: `Stock restored on order cancellation`,
               createdBy: req.user.id,

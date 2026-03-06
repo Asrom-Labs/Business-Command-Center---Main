@@ -7,11 +7,47 @@ const auditService = require('../services/audit.service');
 
 const BCRYPT_ROUNDS = 12;
 
+// In-memory account lockout: 5 failed attempts within 15 minutes locks the account
+const loginAttempts = new Map(); // key: email, value: { count, firstAt }
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MS = 15 * 60 * 1000;
+
+// Periodic cleanup: prevent unbounded Map growth under credential-stuffing attacks (B05).
+// Entries are evicted lazily on next access, but this interval catches unique-email floods.
+setInterval(() => {
+  const cutoff = Date.now() - LOCKOUT_MS;
+  for (const [email, data] of loginAttempts)
+    if (data.firstAt < cutoff) loginAttempts.delete(email);
+}, 5 * 60 * 1000).unref();
+
+function checkLockout(email) {
+  const entry = loginAttempts.get(email);
+  if (!entry) return false;
+  if (Date.now() - entry.firstAt > LOCKOUT_MS) {
+    loginAttempts.delete(email);
+    return false;
+  }
+  return entry.count >= MAX_ATTEMPTS;
+}
+
+function recordFailedAttempt(email) {
+  const entry = loginAttempts.get(email);
+  if (!entry || Date.now() - entry.firstAt > LOCKOUT_MS) {
+    loginAttempts.set(email, { count: 1, firstAt: Date.now() });
+  } else {
+    entry.count += 1;
+  }
+}
+
+function clearAttempts(email) {
+  loginAttempts.delete(email);
+}
+
 const issueToken = (user, roleName) =>
   jwt.sign(
     { sub: user.id, org: user.organization_id, role: roleName, name: user.name },
     process.env.JWT_SECRET,
-    { expiresIn: '7d' }
+    { expiresIn: '24h' }
   );
 
 /**
@@ -111,8 +147,14 @@ const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
+    const genericError = { success: false, data: null, error: 'UNAUTHENTICATED', message: 'Invalid credentials' };
+
+    if (checkLockout(email)) {
+      return res.status(429).json({ success: false, data: null, error: 'RATE_LIMITED', message: 'Too many failed login attempts. Try again later.' });
+    }
+
     const userRes = await pool.query(
-      `SELECT u.*, r.name AS role_name
+      `SELECT u.id, u.organization_id, u.name, u.email, u.password_hash, u.active, r.name AS role_name
        FROM users u
        LEFT JOIN user_roles ur ON ur.user_id = u.id
        LEFT JOIN roles r ON r.id = ur.role_id
@@ -122,13 +164,22 @@ const login = async (req, res, next) => {
     );
 
     const user = userRes.rows[0];
-    const genericError = { success: false, error: 'UNAUTHENTICATED', message: 'Invalid credentials' };
 
-    if (!user) return res.status(401).json(genericError);
-    if (!user.active) return res.status(401).json(genericError);
+    if (!user || !user.active) {
+      recordFailedAttempt(email);
+      await auditService.log({ client: pool, orgId: user ? user.organization_id : null, userId: user ? user.id : null, action: 'login_failed', entity: 'users', entityId: user ? user.id : null });
+      return res.status(401).json(genericError);
+    }
 
     const valid = await bcrypt.compare(password, user.password_hash);
-    if (!valid) return res.status(401).json(genericError);
+    if (!valid) {
+      recordFailedAttempt(email);
+      await auditService.log({ client: pool, orgId: user.organization_id, userId: user.id, action: 'login_failed', entity: 'users', entityId: user.id });
+      return res.status(401).json(genericError);
+    }
+
+    clearAttempts(email);
+    await auditService.log({ client: pool, orgId: user.organization_id, userId: user.id, action: 'login', entity: 'users', entityId: user.id });
 
     const token = issueToken(user, user.role_name || 'staff');
 
@@ -165,7 +216,7 @@ const me = async (req, res, next) => {
       [req.user.id]
     );
     const user = userRes.rows[0];
-    if (!user) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'User not found' });
+    if (!user) return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'User not found' });
     return res.status(200).json({ success: true, data: user, message: 'Success' });
   } catch (err) {
     next(err);
@@ -179,19 +230,25 @@ const changePassword = async (req, res, next) => {
   try {
     const { current_password, new_password } = req.body;
 
-    const userRes = await pool.query('SELECT * FROM users WHERE id = $1', [req.user.id]);
-    const user = userRes.rows[0];
-    if (!user) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'User not found' });
+    await withTransaction(async (client) => {
+      const userRes = await client.query(
+        'SELECT id, password_hash FROM users WHERE id = $1 FOR UPDATE',
+        [req.user.id]
+      );
+      const user = userRes.rows[0];
+      if (!user) {
+        const err = new Error('User not found'); err.isAppError = true; err.statusCode = 404; err.errorCode = 'NOT_FOUND'; throw err;
+      }
 
-    const valid = await bcrypt.compare(current_password, user.password_hash);
-    if (!valid) {
-      return res.status(401).json({ success: false, error: 'UNAUTHENTICATED', message: 'Current password is incorrect' });
-    }
+      const valid = await bcrypt.compare(current_password, user.password_hash);
+      if (!valid) {
+        const err = new Error('Current password is incorrect'); err.isAppError = true; err.statusCode = 401; err.errorCode = 'UNAUTHENTICATED'; throw err;
+      }
 
-    const newHash = await bcrypt.hash(new_password, BCRYPT_ROUNDS);
-    await pool.query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [newHash, req.user.id]);
-
-    await auditService.log({ client: pool, orgId: req.user.org_id, userId: req.user.id, action: 'update', entity: 'users', entityId: req.user.id });
+      const newHash = await bcrypt.hash(new_password, BCRYPT_ROUNDS);
+      await client.query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [newHash, req.user.id]);
+      await auditService.log({ client, orgId: req.user.org_id, userId: req.user.id, action: 'update', entity: 'users', entityId: req.user.id });
+    });
 
     return res.status(200).json({ success: true, data: null, message: 'Password updated successfully' });
   } catch (err) {

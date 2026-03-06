@@ -136,31 +136,33 @@ const updateStatus = async (req, res, next) => {
     const { status } = req.body;
     const orgId = req.user.org_id;
 
-    const chk = await pool.query(
-      `SELECT status FROM purchase_orders WHERE id = $1 AND organization_id = $2`, [id, orgId]
-    );
-    if (!chk.rows.length) {
-      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Purchase order not found' });
-    }
+    const result = await withTransaction(async (client) => {
+      const chk = await client.query(
+        `SELECT status FROM purchase_orders WHERE id = $1 AND organization_id = $2 FOR UPDATE`, [id, orgId]
+      );
+      if (!chk.rows.length) {
+        const err = new Error('Purchase order not found'); err.isAppError = true; err.statusCode = 404; err.errorCode = 'NOT_FOUND'; throw err;
+      }
 
-    const current = chk.rows[0].status;
-    const validTransitions = {
-      draft: ['submitted', 'cancelled'],
-      submitted: ['partially_received', 'received', 'cancelled'],
-      partially_received: ['received', 'cancelled'],
-    };
-    if (!validTransitions[current] || !validTransitions[current].includes(status)) {
-      return res.status(422).json({
-        success: false, error: 'BUSINESS_RULE',
-        message: `Cannot transition from '${current}' to '${status}'`,
-      });
-    }
+      const current = chk.rows[0].status;
+      const validTransitions = {
+        draft: ['submitted', 'cancelled'],
+        submitted: ['partially_received', 'received', 'cancelled'],
+        partially_received: ['received', 'cancelled'],
+      };
+      if (!validTransitions[current] || !validTransitions[current].includes(status)) {
+        const err = new Error(`Cannot transition from '${current}' to '${status}'`);
+        err.isAppError = true; err.statusCode = 422; err.errorCode = 'BUSINESS_RULE'; throw err;
+      }
 
-    const result = await pool.query(
-      `UPDATE purchase_orders SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`, [status, id]
-    );
-    await auditService.log({ client: pool, orgId, userId: req.user.id, action: 'status_change', entity: 'purchase_orders', entityId: id, changes: { from: current, to: status } });
-    return res.json({ success: true, data: result.rows[0], message: `Status updated to ${status}` });
+      const updated = await client.query(
+        `UPDATE purchase_orders SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`, [status, id]
+      );
+      await auditService.log({ client, orgId, userId: req.user.id, action: 'status_change', entity: 'purchase_orders', entityId: id, changes: { from: current, to: status } });
+      return updated.rows[0];
+    });
+
+    return res.json({ success: true, data: result, message: `Status updated to ${status}` });
   } catch (err) { next(err); }
 };
 

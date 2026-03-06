@@ -118,6 +118,16 @@ const create = async (req, res, next) => {
         });
       }
 
+      // Update customer credit balance if this order has a customer.
+      // Lock the customer row first to prevent concurrent returns from double-crediting (B06).
+      if (so.customer_id && totalRefund > 0) {
+        await client.query('SELECT id FROM customers WHERE id = $1 FOR UPDATE', [so.customer_id]);
+        await client.query(
+          `UPDATE customers SET credit_balance = credit_balance + $1, updated_at = NOW() WHERE id = $2`,
+          [totalRefund, so.customer_id]
+        );
+      }
+
       await auditService.log({ client, orgId, userId: req.user.id, action: 'create', entity: 'returns', entityId: returnId });
       return returnRes.rows[0];
     });

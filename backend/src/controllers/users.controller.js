@@ -87,7 +87,7 @@ const getOne = async (req, res, next) => {
        FROM users u
        LEFT JOIN user_roles ur ON ur.user_id = u.id
        LEFT JOIN roles r ON r.id = ur.role_id
-       WHERE u.id = $1 AND u.organization_id = $2`,
+       WHERE u.id = $1 AND u.organization_id = $2 AND u.active = TRUE`,
       [req.params.id, req.user.org_id]
     );
     if (!result.rows.length) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'User not found' });

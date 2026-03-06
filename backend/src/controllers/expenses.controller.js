@@ -25,6 +25,41 @@ const createCategory = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const getOneCategory = async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM expense_categories WHERE id = $1 AND organization_id = $2`,
+      [req.params.id, req.user.org_id]
+    );
+    if (!result.rows.length) {
+      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Category not found' });
+    }
+    return res.json({ success: true, data: result.rows[0], message: 'Success' });
+  } catch (err) { next(err); }
+};
+
+const updateCategory = async (req, res, next) => {
+  try {
+    const chk = await pool.query(
+      `SELECT id FROM expense_categories WHERE id = $1 AND organization_id = $2`,
+      [req.params.id, req.user.org_id]
+    );
+    if (!chk.rows.length) {
+      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Category not found' });
+    }
+    const { name } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ success: false, error: 'VALIDATION_ERROR', message: 'name is required' });
+    }
+    const result = await pool.query(
+      `UPDATE expense_categories SET name = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+      [name.trim(), req.params.id]
+    );
+    await auditService.log({ client: pool, orgId: req.user.org_id, userId: req.user.id, action: 'update', entity: 'expense_categories', entityId: req.params.id });
+    return res.json({ success: true, data: result.rows[0], message: 'Category updated' });
+  } catch (err) { next(err); }
+};
+
 const deleteCategory = async (req, res, next) => {
   try {
     const chk = await pool.query(
@@ -47,6 +82,10 @@ const list = async (req, res, next) => {
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
     const offset = (page - 1) * limit;
     const { category_id, location_id, from, to } = req.query;
+
+    if (from && to && from > to) {
+      return res.status(400).json({ success: false, data: null, error: 'VALIDATION_ERROR', message: "'from' date must be on or before 'to' date" });
+    }
 
     const vals = [req.user.org_id];
     let w = 'WHERE e.organization_id = $1'; let idx = 2;
@@ -168,4 +207,4 @@ const remove = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { listCategories, createCategory, deleteCategory, list, create, getOne, update, remove };
+module.exports = { listCategories, createCategory, getOneCategory, updateCategory, deleteCategory, list, create, getOne, update, remove };

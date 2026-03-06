@@ -16,6 +16,13 @@ router.post('/categories', requireMinRole('admin'), [
   body('name').trim().notEmpty().withMessage('Name is required').isLength({ max: 255 }),
 ], validate, ctrl.createCategory);
 
+router.get('/categories/:id', [param('id').isUUID()], validate, ctrl.getOneCategory);
+
+router.patch('/categories/:id', requireMinRole('admin'), [
+  param('id').isUUID(),
+  body('name').trim().notEmpty().withMessage('Name is required').isLength({ max: 255 }),
+], validate, ctrl.updateCategory);
+
 router.delete('/categories/:id', requireMinRole('admin'), [param('id').isUUID()], validate, ctrl.deleteCategory);
 
 // ── Expenses ──────────────────────────────────────────────────────────────────
