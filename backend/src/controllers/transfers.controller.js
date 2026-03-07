@@ -44,7 +44,7 @@ const create = async (req, res, next) => {
     const orgId = req.user.org_id;
 
     if (from_location_id === to_location_id) {
-      return res.status(422).json({ success: false, error: 'BUSINESS_RULE', message: 'Source and destination location must be different' });
+      return res.status(422).json({ success: false, data: null, error: 'BUSINESS_RULE', message: 'Source and destination location must be different' });
     }
 
     const result = await withTransaction(async (client) => {
@@ -74,6 +74,20 @@ const create = async (req, res, next) => {
         if (!prodChk.rows.length) {
           const err = new Error('Product not found or is not active');
           err.isAppError = true; err.statusCode = 422; err.errorCode = 'VALIDATION_ERROR'; throw err;
+        }
+
+        if (variant_id) {
+          const varChk = await client.query(
+            `SELECT id FROM product_variants WHERE id = $1 AND product_id = $2 AND active = TRUE`,
+            [variant_id, product_id]
+          );
+          if (!varChk.rows.length) {
+            const err = new Error('Variant does not belong to the specified product or is inactive');
+            err.isAppError = true;
+            err.statusCode = 422;
+            err.errorCode = 'VALIDATION_ERROR';
+            throw err;
+          }
         }
 
         await client.query(

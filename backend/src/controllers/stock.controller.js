@@ -23,7 +23,7 @@ const getStock = async (req, res, next) => {
     if (location_id) { w += ` AND sl.location_id = $${idx++}`; vals.push(location_id); }
     if (product_id) { w += ` AND sl.product_id = $${idx++}`; vals.push(product_id); }
 
-    const havingClause = lowStock ? 'HAVING SUM(sl.quantity_change) <= p.low_stock_threshold' : '';
+    const havingClause = lowStock ? 'HAVING p.low_stock_threshold > 0 AND SUM(sl.quantity_change) <= p.low_stock_threshold' : '';
 
     // Count distinct groups for pagination
     const countRes = await pool.query(
@@ -125,7 +125,7 @@ const adjust = async (req, res, next) => {
       `SELECT id FROM products WHERE id = $1 AND organization_id = $2`, [product_id, orgId]
     );
     if (!prodChk.rows.length) {
-      return res.status(422).json({ success: false, error: 'VALIDATION_ERROR', message: 'Product not found' });
+      return res.status(422).json({ success: false, data: null, error: 'VALIDATION_ERROR', message: 'Product not found' });
     }
 
     // Validate location belongs to org
@@ -134,7 +134,7 @@ const adjust = async (req, res, next) => {
       [location_id, orgId]
     );
     if (!locChk.rows.length) {
-      return res.status(422).json({ success: false, error: 'VALIDATION_ERROR', message: 'Location not found' });
+      return res.status(422).json({ success: false, data: null, error: 'VALIDATION_ERROR', message: 'Location not found' });
     }
 
     const newStock = await withTransaction(async (client) => {

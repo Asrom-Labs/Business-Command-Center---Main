@@ -16,7 +16,12 @@ const list = async (req, res, next) => {
     }
 
     const result = await pool.query(
-      `SELECT * FROM product_variants WHERE product_id = $1 ORDER BY name ASC`, [productId]
+      `SELECT pv.*,
+              COALESCE(pv.price, p.price) AS effective_price,
+              COALESCE(pv.cost, p.cost)   AS effective_cost
+       FROM product_variants pv
+       JOIN products p ON p.id = pv.product_id
+       WHERE pv.product_id = $1 AND pv.active = TRUE ORDER BY pv.name ASC`, [productId]
     );
     return res.json({ success: true, data: result.rows, message: 'Success' });
   } catch (err) { next(err); }
@@ -37,7 +42,10 @@ const create = async (req, res, next) => {
 
     const result = await pool.query(
       `INSERT INTO product_variants (product_id, name, sku, barcode, price, cost)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *,
+         COALESCE(price, (SELECT price FROM products WHERE id = $1)) AS effective_price,
+         COALESCE(cost,  (SELECT cost  FROM products WHERE id = $1)) AS effective_cost`,
       [productId, name.trim(), sku, barcode, price, cost]
     );
     await auditService.log({ client: pool, orgId, userId: req.user.id, action: 'create', entity: 'product_variants', entityId: result.rows[0].id });
@@ -51,9 +59,12 @@ const getOne = async (req, res, next) => {
     const orgId = req.user.org_id;
 
     const result = await pool.query(
-      `SELECT pv.* FROM product_variants pv
+      `SELECT pv.*,
+              COALESCE(pv.price, p.price) AS effective_price,
+              COALESCE(pv.cost, p.cost)   AS effective_cost
+       FROM product_variants pv
        JOIN products p ON p.id = pv.product_id
-       WHERE pv.id = $1 AND pv.product_id = $2 AND p.organization_id = $3`,
+       WHERE pv.id = $1 AND pv.product_id = $2 AND p.organization_id = $3 AND pv.active = TRUE`,
       [id, productId, orgId]
     );
     if (!result.rows.length) {
@@ -87,13 +98,16 @@ const update = async (req, res, next) => {
       }
     }
     if (!sets.length) {
-      return res.status(400).json({ success: false, error: 'NO_CHANGES', message: 'No valid fields provided for update' });
+      return res.status(400).json({ success: false, data: null, error: 'NO_CHANGES', message: 'No valid fields provided for update' });
     }
     sets.push(`updated_at = NOW()`);
     vals.push(id);
 
     const result = await pool.query(
-      `UPDATE product_variants SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`, vals
+      `UPDATE product_variants SET ${sets.join(', ')} WHERE id = $${idx}
+       RETURNING *,
+         COALESCE(price, (SELECT price FROM products WHERE id = product_id)) AS effective_price,
+         COALESCE(cost,  (SELECT cost  FROM products WHERE id = product_id)) AS effective_cost`, vals
     );
     await auditService.log({ client: pool, orgId, userId: req.user.id, action: 'update', entity: 'product_variants', entityId: id });
     return res.json({ success: true, data: result.rows[0], message: 'Variant updated' });

@@ -49,7 +49,7 @@ const updateCategory = async (req, res, next) => {
     }
     const { name } = req.body;
     if (!name || !name.trim()) {
-      return res.status(400).json({ success: false, error: 'VALIDATION_ERROR', message: 'name is required' });
+      return res.status(400).json({ success: false, data: null, error: 'VALIDATION_ERROR', message: 'name is required' });
     }
     const result = await pool.query(
       `UPDATE expense_categories SET name = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
@@ -124,7 +124,7 @@ const create = async (req, res, next) => {
       `SELECT id FROM expense_categories WHERE id = $1 AND organization_id = $2`, [category_id, orgId]
     );
     if (!catChk.rows.length) {
-      return res.status(422).json({ success: false, error: 'VALIDATION_ERROR', message: 'Expense category not found' });
+      return res.status(422).json({ success: false, data: null, error: 'VALIDATION_ERROR', message: 'Expense category not found' });
     }
 
     const result = await pool.query(
@@ -169,7 +169,7 @@ const update = async (req, res, next) => {
         [req.body.category_id, req.user.org_id]
       );
       if (!catChk.rows.length) {
-        return res.status(422).json({ success: false, error: 'VALIDATION_ERROR', message: 'Expense category not found in your organization' });
+        return res.status(422).json({ success: false, data: null, error: 'VALIDATION_ERROR', message: 'Expense category not found in your organization' });
       }
     }
 
@@ -182,7 +182,7 @@ const update = async (req, res, next) => {
       }
     }
     if (!sets.length) {
-      return res.status(400).json({ success: false, error: 'NO_CHANGES', message: 'No valid fields provided for update' });
+      return res.status(400).json({ success: false, data: null, error: 'NO_CHANGES', message: 'No valid fields provided for update' });
     }
     sets.push(`updated_at = NOW()`);
     vals.push(req.params.id);

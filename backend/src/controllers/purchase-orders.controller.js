@@ -44,9 +44,9 @@ const create = async (req, res, next) => {
 
     const result = await withTransaction(async (client) => {
       // Validate supplier belongs to org
-      const supChk = await client.query(`SELECT id FROM suppliers WHERE id = $1 AND organization_id = $2`, [supplier_id, orgId]);
+      const supChk = await client.query(`SELECT id FROM suppliers WHERE id = $1 AND organization_id = $2 AND active = TRUE`, [supplier_id, orgId]);
       if (!supChk.rows.length) {
-        const err = new Error('Supplier not found in your organization'); err.isAppError = true; err.statusCode = 422; err.errorCode = 'VALIDATION_ERROR'; throw err;
+        const err = new Error('Supplier not found or is inactive'); err.isAppError = true; err.statusCode = 422; err.errorCode = 'VALIDATION_ERROR'; throw err;
       }
 
       // Validate location belongs to org
@@ -73,6 +73,19 @@ const create = async (req, res, next) => {
         if (!prodChk.rows.length) {
           const err = new Error('Product not found or is not active');
           err.isAppError = true; err.statusCode = 422; err.errorCode = 'VALIDATION_ERROR'; throw err;
+        }
+        if (variant_id) {
+          const varChk = await client.query(
+            `SELECT id FROM product_variants WHERE id = $1 AND product_id = $2 AND active = TRUE`,
+            [variant_id, product_id]
+          );
+          if (!varChk.rows.length) {
+            const err = new Error('Variant does not belong to the specified product or is inactive');
+            err.isAppError = true;
+            err.statusCode = 422;
+            err.errorCode = 'VALIDATION_ERROR';
+            throw err;
+          }
         }
         await client.query(
           `INSERT INTO purchase_order_items (purchase_order_id, product_id, variant_id, quantity, cost) VALUES ($1, $2, $3, $4, $5)`,
@@ -107,7 +120,9 @@ const getOne = async (req, res, next) => {
     }
 
     const itemsRes = await pool.query(
-      `SELECT poi.*, p.name AS product_name, pv.name AS variant_name
+      `SELECT poi.id, poi.purchase_order_id, poi.product_id, poi.variant_id,
+              poi.quantity, poi.cost AS unit_cost,
+              p.name AS product_name, pv.name AS variant_name
        FROM purchase_order_items poi
        JOIN products p ON p.id = poi.product_id
        LEFT JOIN product_variants pv ON pv.id = poi.variant_id

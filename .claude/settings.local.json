@@ -5,7 +5,15 @@
       "Bash(py:*)",
       "Bash(node:*)",
       "Bash(do node:*)",
-      "Bash(psql:*)"
+      "Bash(psql:*)",
+      "Bash(claude:*)",
+      "Bash(curl:*)",
+      "Bash(npm run:*)",
+      "Bash(ls db:*)",
+      "Bash(npm install:*)",
+      "Bash(gh repo:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(Get-Content:*)"
     ]
   }
 }

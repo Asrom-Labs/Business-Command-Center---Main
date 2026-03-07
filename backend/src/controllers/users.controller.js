@@ -100,7 +100,7 @@ const update = async (req, res, next) => {
     const { name, role, active } = req.body;
 
     if (req.params.id === req.user.id && (role !== undefined || active === false)) {
-      return res.status(403).json({ success: false, error: 'FORBIDDEN', message: 'Cannot modify your own role or deactivate yourself' });
+      return res.status(403).json({ success: false, data: null, error: 'FORBIDDEN', message: 'Cannot modify your own role or deactivate yourself' });
     }
 
     const result = await withTransaction(async (client) => {

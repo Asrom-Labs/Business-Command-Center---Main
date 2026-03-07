@@ -23,7 +23,20 @@ const list = async (req, res, next) => {
 
 const create = async (req, res, next) => {
   try {
-    const r = await pool.query(`INSERT INTO units (organization_id, name) VALUES ($1, $2) RETURNING *`, [req.user.org_id, req.body.name.trim()]);
+    const name = req.body.name.trim();
+
+    const dupChk = await pool.query(
+      `SELECT id FROM units WHERE LOWER(name) = LOWER($1) AND organization_id IS NULL`,
+      [name]
+    );
+    if (dupChk.rows.length) {
+      return res.status(409).json({
+        success: false, data: null, error: 'DUPLICATE_ENTRY',
+        message: `A system unit named '${name}' already exists. Please use the existing unit or choose a different name.`,
+      });
+    }
+
+    const r = await pool.query(`INSERT INTO units (organization_id, name) VALUES ($1, $2) RETURNING *`, [req.user.org_id, name]);
     await auditService.log({ client: pool, orgId: req.user.org_id, userId: req.user.id, action: 'create', entity: 'units', entityId: r.rows[0].id });
     return res.status(201).json({ success: true, data: r.rows[0], message: 'Unit created' });
   } catch (err) { next(err); }

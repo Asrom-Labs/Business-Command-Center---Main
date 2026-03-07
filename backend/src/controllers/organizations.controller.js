@@ -30,7 +30,7 @@ const updateMyOrg = async (req, res, next) => {
     if (currency !== undefined) { updates.push(`currency = $${idx++}`); values.push(currency.trim()); }
 
     if (!updates.length) {
-      return res.status(400).json({ success: false, error: 'NO_CHANGES', message: 'No valid fields provided for update' });
+      return res.status(400).json({ success: false, data: null, error: 'NO_CHANGES', message: 'No valid fields provided for update' });
     }
 
     updates.push(`updated_at = NOW()`);

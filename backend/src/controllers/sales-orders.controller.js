@@ -84,6 +84,20 @@ const create = async (req, res, next) => {
           err.isAppError = true; err.statusCode = 422; err.errorCode = 'VALIDATION_ERROR'; throw err;
         }
 
+        if (variant_id) {
+          const varChk = await client.query(
+            `SELECT id FROM product_variants WHERE id = $1 AND product_id = $2 AND active = TRUE`,
+            [variant_id, product_id]
+          );
+          if (!varChk.rows.length) {
+            const err = new Error('Variant does not belong to the specified product or is inactive');
+            err.isAppError = true;
+            err.statusCode = 422;
+            err.errorCode = 'VALIDATION_ERROR';
+            throw err;
+          }
+        }
+
         const prod = prodRes.rows[0];
         const effectivePrice = overridePrice !== null ? overridePrice : (prod.var_price !== null ? prod.var_price : prod.price || 0);
         const effectiveCost = prod.var_cost !== null ? prod.var_cost : prod.cost || 0;

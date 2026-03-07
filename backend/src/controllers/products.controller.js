@@ -21,7 +21,11 @@ const list = async (req, res, next) => {
       vals.push(search); idx++;
     }
     if (category_id) { where += ` AND p.category_id = $${idx++}`; vals.push(category_id); }
-    if (activeFilter !== undefined) { where += ` AND p.active = $${idx++}`; vals.push(activeFilter === 'true' || activeFilter === true); }
+    if (activeFilter === 'false') {
+      where += ` AND p.active = FALSE`;
+    } else {
+      where += ` AND p.active = TRUE`;
+    }
 
     const countRes = await pool.query(`SELECT COUNT(*) FROM products p ${where}`, vals);
     const total = parseInt(countRes.rows[0].count);
@@ -85,7 +89,7 @@ const getOne = async (req, res, next) => {
        FROM products p
        LEFT JOIN categories c ON c.id = p.category_id
        LEFT JOIN units u ON u.id = p.unit_id
-       WHERE p.id = $1 AND p.organization_id = $2`,
+       WHERE p.id = $1 AND p.organization_id = $2 AND p.active = TRUE`,
       [id, orgId]
     );
     if (!prodRes.rows.length) return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Product not found' });
@@ -143,7 +147,7 @@ const update = async (req, res, next) => {
         vals.push(typeof req.body[field] === 'string' ? req.body[field].trim() : req.body[field]);
       }
     }
-    if (!sets.length) return res.status(400).json({ success: false, error: 'NO_CHANGES', message: 'No valid fields provided for update' });
+    if (!sets.length) return res.status(400).json({ success: false, data: null, error: 'NO_CHANGES', message: 'No valid fields provided for update' });
     sets.push(`updated_at = NOW()`);
     vals.push(id);
 

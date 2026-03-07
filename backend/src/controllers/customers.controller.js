@@ -79,7 +79,7 @@ const update = async (req, res, next) => {
       }
     }
     if (!sets.length) {
-      return res.status(400).json({ success: false, error: 'NO_CHANGES', message: 'No valid fields provided for update' });
+      return res.status(400).json({ success: false, data: null, error: 'NO_CHANGES', message: 'No valid fields provided for update' });
     }
     sets.push(`updated_at = NOW()`);
     vals.push(req.params.id);
@@ -108,7 +108,7 @@ const addNote = async (req, res, next) => {
   try {
     const { note } = req.body;
     const chk = await pool.query(
-      `SELECT id FROM customers WHERE id = $1 AND organization_id = $2`, [req.params.id, req.user.org_id]
+      `SELECT id FROM customers WHERE id = $1 AND organization_id = $2 AND active = TRUE`, [req.params.id, req.user.org_id]
     );
     if (!chk.rows.length) {
       return res.status(404).json({ success: false, data: null, error: 'NOT_FOUND', message: 'Customer not found' });
