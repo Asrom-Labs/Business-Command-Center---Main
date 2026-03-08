@@ -1,0 +1,167 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ── Shadcn/ui CSS variables ── */
+    --background: 36 33% 97%;
+    --foreground: 222 20% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 20% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 20% 12%;
+    --primary: 239 84% 67%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 222 20% 30%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 220 14% 93%;
+    --accent-foreground: 222 20% 18%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 239 84% 67%;
+    --radius: 0.5rem;
+
+    /* ── Layout tokens ── */
+    --header-height: 60px;
+    --sidebar-width: 256px;
+    --sidebar-collapsed-width: 68px;
+
+    /* ── Sidebar tokens (light) ── */
+    --sidebar-bg: 222 25% 11%;
+    --sidebar-fg: 220 20% 88%;
+    --sidebar-muted-fg: 220 15% 55%;
+    --sidebar-border: 222 20% 18%;
+    --sidebar-hover-bg: 222 20% 17%;
+    --sidebar-active-bg: 239 84% 67%;
+    --sidebar-active-fg: 0 0% 100%;
+  }
+
+  .dark {
+    --background: 222 25% 9%;
+    --foreground: 210 20% 92%;
+    --card: 222 25% 11%;
+    --card-foreground: 210 20% 92%;
+    --popover: 222 25% 11%;
+    --popover-foreground: 210 20% 92%;
+    --primary: 239 84% 72%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 222 20% 16%;
+    --secondary-foreground: 210 20% 80%;
+    --muted: 222 20% 16%;
+    --muted-foreground: 220 12% 55%;
+    --accent: 222 20% 18%;
+    --accent-foreground: 210 20% 92%;
+    --destructive: 0 63% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 222 20% 18%;
+    --input: 222 20% 18%;
+    --ring: 239 84% 72%;
+
+    /* ── Sidebar tokens (dark — slightly deeper) ── */
+    --sidebar-bg: 222 28% 7%;
+    --sidebar-fg: 220 18% 82%;
+    --sidebar-muted-fg: 220 12% 48%;
+    --sidebar-border: 222 22% 14%;
+    --sidebar-hover-bg: 222 22% 14%;
+    --sidebar-active-bg: 239 84% 67%;
+    --sidebar-active-fg: 0 0% 100%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    /* Smooth theme transitions */
+    transition: background-color 120ms ease, color 120ms ease;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* RTL font stack */
+  [dir="rtl"] body {
+    font-family: 'Plus Jakarta Sans', 'Segoe UI', Tahoma, Arial, sans-serif;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/50;
+  }
+}
+
+@layer components {
+  .page-container {
+    @apply p-6 space-y-6;
+  }
+
+  .bcc-card {
+    @apply bg-card text-card-foreground rounded-lg border shadow-sm p-6;
+  }
+
+  .field-error {
+    @apply text-destructive text-xs mt-1;
+  }
+}
+
+@layer utilities {
+  /* Status badge utilities */
+  .status-active {
+    @apply bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400;
+  }
+  .status-inactive {
+    @apply bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400;
+  }
+  .status-pending {
+    @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400;
+  }
+  .status-cancelled {
+    @apply bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400;
+  }
+  .status-completed {
+    @apply bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400;
+  }
+  .status-confirmed {
+    @apply bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400;
+  }
+
+  /* Animations */
+  .fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  .slide-in-left {
+    animation: slideInLeft 0.25s ease-out;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}

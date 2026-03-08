@@ -13,7 +13,16 @@
       "Bash(npm install:*)",
       "Bash(gh repo:*)",
       "WebFetch(domain:github.com)",
-      "Bash(Get-Content:*)"
+      "Bash(Get-Content:*)",
+      "Bash(npm create:*)",
+      "Bash(npx tailwindcss:*)",
+      "Bash(npx shadcn@latest:*)",
+      "Bash(printf y\\\\ny\\\\n:*)",
+      "Bash(npm view:*)",
+      "Bash(rm:*)",
+      "Bash(mkdir:*)",
+      "Bash(npx:*)",
+      "Bash(ls dir:*)"
     ]
   }
 }

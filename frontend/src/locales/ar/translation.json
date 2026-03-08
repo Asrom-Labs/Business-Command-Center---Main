@@ -1,0 +1,107 @@
+{
+  "app": {
+    "name": "مركز قيادة الأعمال",
+    "tagline": "عمليات موحدة للشركات الحديثة",
+    "loading": "جارٍ التحميل…"
+  },
+  "auth": {
+    "login": {
+      "title": "مرحباً بعودتك",
+      "subtitle": "سجّل دخولك إلى مساحة عملك",
+      "emailLabel": "البريد الإلكتروني",
+      "emailPlaceholder": "أنت@شركتك.com",
+      "passwordLabel": "كلمة المرور",
+      "passwordPlaceholder": "أدخل كلمة المرور",
+      "showPassword": "إظهار كلمة المرور",
+      "hidePassword": "إخفاء كلمة المرور",
+      "submitButton": "تسجيل الدخول",
+      "submitting": "جارٍ تسجيل الدخول…",
+      "noAccount": "ليس لديك حساب؟",
+      "contactAdmin": "تواصل مع المسؤول.",
+      "errors": {
+        "emailRequired": "البريد الإلكتروني مطلوب",
+        "emailInvalid": "أدخل عنوان بريد إلكتروني صالح",
+        "passwordRequired": "كلمة المرور مطلوبة",
+        "passwordMinLength": "يجب أن تتكون كلمة المرور من 8 أحرف على الأقل",
+        "invalidCredentials": "البريد الإلكتروني أو كلمة المرور غير صحيحة",
+        "accountLocked": "تم تعليق حسابك. تواصل مع المسؤول.",
+        "serverError": "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
+        "networkError": "تعذّر الوصول إلى الخادم. تحقق من اتصالك.",
+        "tooManyAttempts": "محاولات كثيرة جداً. يرجى الانتظار قبل المحاولة مجدداً."
+      },
+      "features": {
+        "inventory": "إدارة المخزون والمستودعات",
+        "orders": "أوامر الشراء والمبيعات",
+        "reports": "التقارير والتحليلات الفورية"
+      },
+      "copyright": "© {{year}} مركز قيادة الأعمال"
+    }
+  },
+  "nav": {
+    "groups": {
+      "overview": "نظرة عامة",
+      "inventory": "المخزون",
+      "operations": "العمليات",
+      "finance": "المالية",
+      "settings": "الإعدادات"
+    },
+    "items": {
+      "dashboard": "لوحة التحكم",
+      "organization": "المؤسسة",
+      "branches": "الفروع",
+      "locations": "المواقع",
+      "users": "المستخدمون",
+      "categories": "الفئات",
+      "units": "الوحدات",
+      "products": "المنتجات",
+      "suppliers": "الموردون",
+      "customers": "العملاء",
+      "purchaseOrders": "أوامر الشراء",
+      "salesOrders": "أوامر المبيعات",
+      "payments": "المدفوعات",
+      "returns": "المرتجعات",
+      "transfers": "التحويلات",
+      "stock": "المخزون",
+      "expenses": "المصروفات",
+      "reports": "التقارير",
+      "auditLog": "سجل المراجعة"
+    }
+  },
+  "header": {
+    "toggleTheme": "تبديل المظهر",
+    "language": "اللغة",
+    "myProfile": "ملفي الشخصي",
+    "changePassword": "تغيير كلمة المرور",
+    "signOut": "تسجيل الخروج",
+    "role": {
+      "owner": "مالك",
+      "admin": "مسؤول",
+      "staff": "موظف",
+      "readonly": "قراءة فقط"
+    }
+  },
+  "common": {
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "delete": "حذف",
+    "edit": "تعديل",
+    "add": "إضافة",
+    "search": "بحث",
+    "filter": "تصفية",
+    "export": "تصدير",
+    "import": "استيراد",
+    "loading": "جارٍ التحميل…",
+    "noData": "لا توجد بيانات",
+    "confirm": "تأكيد",
+    "back": "رجوع",
+    "next": "التالي",
+    "previous": "السابق",
+    "close": "إغلاق",
+    "yes": "نعم",
+    "no": "لا",
+    "actions": "إجراءات",
+    "status": "الحالة",
+    "createdAt": "تاريخ الإنشاء",
+    "updatedAt": "تاريخ التعديل"
+  }
+}

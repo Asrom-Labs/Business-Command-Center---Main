@@ -1,0 +1,107 @@
+{
+  "app": {
+    "name": "Business Command Center",
+    "tagline": "Unified operations for modern businesses",
+    "loading": "Loading…"
+  },
+  "auth": {
+    "login": {
+      "title": "Welcome back",
+      "subtitle": "Sign in to your workspace",
+      "emailLabel": "Email address",
+      "emailPlaceholder": "you@company.com",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "Enter your password",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "submitButton": "Sign in",
+      "submitting": "Signing in…",
+      "noAccount": "Don't have an account?",
+      "contactAdmin": "Contact your administrator.",
+      "errors": {
+        "emailRequired": "Email is required",
+        "emailInvalid": "Enter a valid email address",
+        "passwordRequired": "Password is required",
+        "passwordMinLength": "Password must be at least 8 characters",
+        "invalidCredentials": "Invalid email or password",
+        "accountLocked": "Your account has been locked. Contact your administrator.",
+        "serverError": "Something went wrong. Please try again.",
+        "networkError": "Cannot reach the server. Check your connection.",
+        "tooManyAttempts": "Too many attempts. Please wait before trying again."
+      },
+      "features": {
+        "inventory": "Inventory & stock management",
+        "orders": "Purchase & sales orders",
+        "reports": "Real-time reports & analytics"
+      },
+      "copyright": "© {{year}} Business Command Center"
+    }
+  },
+  "nav": {
+    "groups": {
+      "overview": "Overview",
+      "inventory": "Inventory",
+      "operations": "Operations",
+      "finance": "Finance",
+      "settings": "Settings"
+    },
+    "items": {
+      "dashboard": "Dashboard",
+      "organization": "Organization",
+      "branches": "Branches",
+      "locations": "Locations",
+      "users": "Users",
+      "categories": "Categories",
+      "units": "Units",
+      "products": "Products",
+      "suppliers": "Suppliers",
+      "customers": "Customers",
+      "purchaseOrders": "Purchase Orders",
+      "salesOrders": "Sales Orders",
+      "payments": "Payments",
+      "returns": "Returns",
+      "transfers": "Transfers",
+      "stock": "Stock",
+      "expenses": "Expenses",
+      "reports": "Reports",
+      "auditLog": "Audit Log"
+    }
+  },
+  "header": {
+    "toggleTheme": "Toggle theme",
+    "language": "Language",
+    "myProfile": "My Profile",
+    "changePassword": "Change Password",
+    "signOut": "Sign out",
+    "role": {
+      "owner": "Owner",
+      "admin": "Admin",
+      "staff": "Staff",
+      "readonly": "Read Only"
+    }
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "search": "Search",
+    "filter": "Filter",
+    "export": "Export",
+    "import": "Import",
+    "loading": "Loading…",
+    "noData": "No data found",
+    "confirm": "Confirm",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "close": "Close",
+    "yes": "Yes",
+    "no": "No",
+    "actions": "Actions",
+    "status": "Status",
+    "createdAt": "Created",
+    "updatedAt": "Updated"
+  }
+}
