@@ -15,8 +15,8 @@ import arTranslations from '@/locales/ar/translation.json';
 
 /** All languages supported by BCC. */
 export const SUPPORTED_LANGUAGES = [
-  { code: 'en', label: 'English',  dir: 'ltr', flag: '🇬🇧' },
-  { code: 'ar', label: 'العربية', dir: 'rtl', flag: '🇯🇴' },
+  { code: 'en', label: 'English',  dir: 'ltr' },
+  { code: 'ar', label: 'العربية', dir: 'rtl' },
 ];
 
 /** localStorage key where the user's language choice is persisted. */

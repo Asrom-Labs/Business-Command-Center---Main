@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { startOfWeek, startOfMonth, startOfYear, format, formatDistanceToNow } from 'date-fns';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -12,7 +13,7 @@ import {
 } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
-import { useOrgStore } from '@/stores/orgStore';
+import { useOrg } from '@/hooks/useOrg';
 import {
   fetchDashboardMetrics, fetchSalesByDay,
   fetchRecentOrders, fetchLowStockItems,
@@ -20,23 +21,15 @@ import {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function getGreeting() {
+function getGreetingKey() {
   const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 17) return 'Good afternoon';
-  return 'Good evening';
+  if (hour < 12) return 'dashboard.greeting.morning';
+  if (hour < 17) return 'dashboard.greeting.afternoon';
+  return 'dashboard.greeting.evening';
 }
-
-const PERIODS = [
-  { key: 'today', label: 'Today' },
-  { key: 'week',  label: 'This Week' },
-  { key: 'month', label: 'This Month' },
-  { key: 'year',  label: 'This Year' },
-];
 
 function getPeriodDates(period) {
   const today = format(new Date(), 'yyyy-MM-dd');
-
   if (period === 'today') return { from: today, to: today, chartFrom: today, chartTo: today };
   if (period === 'week') {
     const wk = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
@@ -91,10 +84,16 @@ function ListSkeleton() {
 
 // ── KPI Card ─────────────────────────────────────────────────────────────────
 
+function accentBg(color) {
+  if (color.startsWith('#')) return color + '1a';
+  if (color.startsWith('hsl(')) return color.replace('hsl(', 'hsla(').replace(')', ', 0.1)');
+  return color;
+}
+
 function KpiCard({ value, label, subtext, icon: Icon, accent, index }) {
   return (
     <div
-      className="bcc-card border-l-4 fade-in"
+      className="bcc-card border-s-4 fade-in"
       style={{ borderLeftColor: accent, animationDelay: `${index * 50}ms` }}
     >
       <div className="flex items-start justify-between">
@@ -105,7 +104,7 @@ function KpiCard({ value, label, subtext, icon: Icon, accent, index }) {
         </div>
         <div
           className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg"
-          style={{ backgroundColor: accent + '1a' }}
+          style={{ backgroundColor: accentBg(accent) }}
         >
           <Icon className="h-5 w-5" style={{ color: accent }} />
         </div>
@@ -117,23 +116,26 @@ function KpiCard({ value, label, subtext, icon: Icon, accent, index }) {
 // ── Revenue Chart ────────────────────────────────────────────────────────────
 
 function RevenueChart({ data, currency, isLoading }) {
+  const { t } = useTranslation();
   if (isLoading) return <ChartSkeleton />;
 
-  const chartData = (data || []).map((item) => ({
-    ...item,
-    revenue: parseFloat(item.revenue) || 0,
-    label: format(new Date(item.day + 'T00:00:00'), 'MMM d'),
-  }));
+  const chartData = (data || [])
+    .filter((item) => item.day && !isNaN(new Date(item.day + 'T00:00:00').getTime()))
+    .map((item) => ({
+      ...item,
+      revenue: parseFloat(item.revenue) || 0,
+      label: format(new Date(item.day + 'T00:00:00'), 'MMM d'),
+    }));
 
   const isEmpty = chartData.length === 0 || chartData.every((d) => d.revenue === 0);
 
   return (
     <div className="bcc-card">
-      <h3 className="text-base font-semibold mb-4">Revenue</h3>
+      <h3 className="text-base font-semibold mb-4">{t('dashboard.chart.title')}</h3>
       {isEmpty ? (
         <div className="flex flex-col items-center justify-center h-[260px] text-muted-foreground">
           <BarChart3 className="h-10 w-10 mb-2 opacity-40" />
-          <p className="text-sm">No revenue data for this period</p>
+          <p className="text-sm">{t('dashboard.chart.empty')}</p>
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={260}>
@@ -175,13 +177,16 @@ function RevenueChart({ data, currency, isLoading }) {
 }
 
 function ChartTooltip({ active, payload, currency }) {
+  const { t } = useTranslation();
   if (!active || !payload?.length) return null;
   const item = payload[0].payload;
   return (
     <div className="rounded-lg border bg-popover p-3 text-popover-foreground shadow-md text-sm">
-      <p className="font-medium">{format(new Date(item.day + 'T00:00:00'), 'MMM d, yyyy')}</p>
-      <p className="mt-1">Revenue: {formatCurrency(item.revenue, currency)}</p>
-      <p>Orders: {item.order_count}</p>
+      <p className="font-medium">
+        {item.day ? format(new Date(item.day + 'T00:00:00'), 'MMM d, yyyy') : '—'}
+      </p>
+      <p className="mt-1">{t('dashboard.chart.tooltipRevenue')}: {formatCurrency(item.revenue, currency)}</p>
+      <p>{t('dashboard.chart.tooltipOrders')}: {item.order_count}</p>
     </div>
   );
 }
@@ -189,15 +194,16 @@ function ChartTooltip({ active, payload, currency }) {
 // ── Recent Orders Panel ──────────────────────────────────────────────────────
 
 function RecentOrdersPanel({ orders, currency, isLoading }) {
+  const { t } = useTranslation();
   return (
     <div className="bcc-card flex flex-col">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-base font-semibold">Recent Orders</h3>
+        <h3 className="text-base font-semibold">{t('dashboard.recentOrders.title')}</h3>
         <Link
           to="/sales-orders"
           className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1"
         >
-          View all <ArrowRight className="h-3 w-3" />
+          {t('dashboard.recentOrders.viewAll')} <ArrowRight className="h-3 w-3" />
         </Link>
       </div>
 
@@ -206,7 +212,7 @@ function RecentOrdersPanel({ orders, currency, isLoading }) {
       ) : !orders || orders.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
           <ShoppingCart className="h-10 w-10 mb-2 opacity-40" />
-          <p className="text-sm">No orders yet</p>
+          <p className="text-sm">{t('dashboard.recentOrders.empty')}</p>
         </div>
       ) : (
         <div className="space-y-0 divide-y divide-border">
@@ -218,14 +224,14 @@ function RecentOrdersPanel({ orders, currency, isLoading }) {
                     {formatOrderId(order.id)}
                   </span>
                   <span className="text-sm font-medium truncate">
-                    {order.customer_name || 'Walk-in'}
+                    {order.customer_name || t('dashboard.recentOrders.walkIn')}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {formatDistanceToNow(new Date(order.created_at), { addSuffix: true })}
                 </p>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+              <div className="flex items-center gap-2 flex-shrink-0 ms-3">
                 <span className={cn(
                   'text-[10px] font-medium px-1.5 py-0.5 rounded-full',
                   CHANNEL_STYLES[order.channel] || CHANNEL_STYLES.other,
@@ -238,7 +244,7 @@ function RecentOrdersPanel({ orders, currency, isLoading }) {
                 )}>
                   {order.status}
                 </span>
-                <span className="text-sm font-medium w-24 text-right">
+                <span className="text-sm font-medium w-24 text-end">
                   {formatCurrency(parseFloat(order.total), currency)}
                 </span>
               </div>
@@ -253,15 +259,16 @@ function RecentOrdersPanel({ orders, currency, isLoading }) {
 // ── Low Stock Panel ──────────────────────────────────────────────────────────
 
 function LowStockPanel({ items, totalCount, isLoading }) {
+  const { t } = useTranslation();
   return (
     <div className="bcc-card flex flex-col">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-base font-semibold">Low Stock</h3>
+        <h3 className="text-base font-semibold">{t('dashboard.lowStock.title')}</h3>
         <Link
           to="/stock"
           className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1"
         >
-          View all <ArrowRight className="h-3 w-3" />
+          {t('dashboard.lowStock.viewAll')} <ArrowRight className="h-3 w-3" />
         </Link>
       </div>
 
@@ -270,7 +277,7 @@ function LowStockPanel({ items, totalCount, isLoading }) {
       ) : !items || items.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
           <CheckCircle className="h-10 w-10 mb-2 text-green-500 opacity-60" />
-          <p className="text-sm">All stock levels healthy</p>
+          <p className="text-sm">{t('dashboard.lowStock.empty')}</p>
         </div>
       ) : (
         <>
@@ -281,28 +288,25 @@ function LowStockPanel({ items, totalCount, isLoading }) {
                   <p className="text-sm font-medium truncate">{item.name}</p>
                   <p className="text-xs text-muted-foreground">{item.location_name}</p>
                 </div>
-                <div className="flex items-center gap-3 flex-shrink-0 ml-3">
+                <div className="flex items-center gap-3 flex-shrink-0 ms-3">
                   <span className={cn(
                     'text-xs font-medium px-2 py-0.5 rounded-full',
                     item.stock_on_hand === 0
                       ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
                       : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400',
                   )}>
-                    {item.stock_on_hand} left
+                    {item.stock_on_hand} {t('dashboard.lowStock.left')}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    Min: {item.low_stock_threshold}
+                    {t('dashboard.lowStock.min')}: {item.low_stock_threshold}
                   </span>
                 </div>
               </div>
             ))}
           </div>
           {totalCount > 5 && (
-            <Link
-              to="/stock"
-              className="mt-3 text-xs text-primary hover:underline"
-            >
-              and {totalCount - 5} more items...
+            <Link to="/stock" className="mt-3 text-xs text-primary hover:underline">
+              {t('dashboard.lowStock.more', { count: totalCount - 5 })}
             </Link>
           )}
         </>
@@ -314,11 +318,22 @@ function LowStockPanel({ items, totalCount, isLoading }) {
 // ── Main Dashboard ───────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
-  const currency = useOrgStore((s) => s.currency) || 'JOD';
+  const { currency: rawCurrency } = useOrg();
+  const currency = rawCurrency || 'JOD';
   const [period, setPeriod] = useState('month');
 
-  useEffect(() => { document.title = 'Dashboard \u2014 BCC'; }, []);
+  useEffect(() => {
+    document.title = t('dashboard.pageTitle');
+  }, [t]);
+
+  const PERIODS = [
+    { key: 'today', label: t('dashboard.periods.today') },
+    { key: 'week',  label: t('dashboard.periods.week') },
+    { key: 'month', label: t('dashboard.periods.month') },
+    { key: 'year',  label: t('dashboard.periods.year') },
+  ];
 
   const { from, to, chartFrom, chartTo } = getPeriodDates(period);
 
@@ -354,43 +369,43 @@ export default function DashboardPage() {
   const kpiCards = metrics ? [
     {
       value: formatCurrency(parseFloat(metrics.sales.gross_revenue), currency),
-      label: 'Gross Revenue',
-      subtext: `${metrics.sales.order_count} orders`,
+      label: t('dashboard.kpi.grossRevenue'),
+      subtext: t('dashboard.kpi.grossRevenueSubtext', { count: metrics.sales.order_count }),
       icon: TrendingUp,
       accent: 'hsl(239, 84%, 67%)',
     },
     {
       value: formatCurrency(parseFloat(metrics.sales.collected), currency),
-      label: 'Collected',
-      subtext: `${formatCurrency(parseFloat(metrics.sales.outstanding), currency)} outstanding`,
+      label: t('dashboard.kpi.collected'),
+      subtext: t('dashboard.kpi.collectedSubtext', { amount: formatCurrency(parseFloat(metrics.sales.outstanding), currency) }),
       icon: Wallet,
       accent: '#22c55e',
     },
     {
       value: formatCurrency(parseFloat(metrics.sales.outstanding), currency),
-      label: 'Unpaid Balance',
-      subtext: 'Awaiting collection',
+      label: t('dashboard.kpi.unpaidBalance'),
+      subtext: t('dashboard.kpi.unpaidBalanceSubtext'),
       icon: Clock,
       accent: parseFloat(metrics.sales.outstanding) > 0 ? '#f59e0b' : '#9ca3af',
     },
     {
       value: formatCurrency(parseFloat(metrics.profitability.gross_profit), currency),
-      label: 'Gross Profit',
-      subtext: `${parseFloat(metrics.profitability.gross_margin_pct).toFixed(1)}% margin`,
+      label: t('dashboard.kpi.grossProfit'),
+      subtext: t('dashboard.kpi.grossProfitSubtext', { margin: parseFloat(metrics.profitability.gross_margin_pct).toFixed(1) }),
       icon: BarChart3,
       accent: 'hsl(239, 84%, 67%)',
     },
     {
       value: metrics.inventory.low_stock_count,
-      label: 'Low Stock Items',
-      subtext: `${metrics.inventory.pending_po_count} POs pending`,
+      label: t('dashboard.kpi.lowStockItems'),
+      subtext: t('dashboard.kpi.lowStockSubtext', { count: metrics.inventory.pending_po_count }),
       icon: Package,
       accent: metrics.inventory.low_stock_count > 0 ? '#ef4444' : '#22c55e',
     },
     {
       value: metrics.customers.new_customers,
-      label: 'New Customers',
-      subtext: 'This period',
+      label: t('dashboard.kpi.newCustomers'),
+      subtext: t('dashboard.kpi.newCustomersSubtext'),
       icon: Users,
       accent: 'hsl(239, 84%, 67%)',
     },
@@ -400,7 +415,7 @@ export default function DashboardPage() {
     <div className="page-container">
       {/* Greeting */}
       <p className="text-xl font-semibold">
-        {getGreeting()}, {user?.name?.split(' ')[0]} 👋
+        {t(getGreetingKey())}, {user?.name?.split(' ')[0]} 👋
       </p>
 
       {/* Error banner */}
@@ -408,14 +423,14 @@ export default function DashboardPage() {
         <div className="flex items-center gap-2.5 rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20 px-4 py-3">
           <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
           <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
-            Unable to load some dashboard data. Please refresh.
+            {t('dashboard.error')}
           </p>
         </div>
       )}
 
       {/* Header row: title + period selector */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t('dashboard.title')}</h1>
         <div className="inline-flex rounded-lg border bg-muted p-0.5">
           {PERIODS.map((p) => (
             <button
@@ -438,7 +453,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {metricsQuery.isLoading
           ? Array.from({ length: 6 }).map((_, i) => <KpiCardSkeleton key={i} />)
-          : kpiCards.map((card, i) => <KpiCard key={card.label} {...card} index={i} />)
+          : kpiCards.map((card, i) => <KpiCard key={i} {...card} index={i} />)
         }
       </div>
 

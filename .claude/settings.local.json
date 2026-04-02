@@ -22,7 +22,11 @@
       "Bash(rm:*)",
       "Bash(mkdir:*)",
       "Bash(npx:*)",
-      "Bash(ls dir:*)"
+      "Bash(ls dir:*)",
+      "Bash(ls:*)",
+      "Bash(cmd:*)",
+      "Bash(xxd -l 200 \"C:\\\\Users\\\\Ashraf Rusheidat\\\\Desktop\\\\Business Command Center\\\\App\\\\BCC_PROJECT_BRAIN.md\")",
+      "Bash(npm list:*)"
     ]
   }
 }

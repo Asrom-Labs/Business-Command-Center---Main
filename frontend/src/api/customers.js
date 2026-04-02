@@ -1,11 +1,26 @@
 import api from '@/lib/api';
 
-export const customersApi = {
-  list:       (params)   => api.get('/customers', { params }),
-  getOne:     (id)       => api.get(`/customers/${id}`),
-  create:     (data)     => api.post('/customers', data),
-  update:     (id, data) => api.patch(`/customers/${id}`, data),
-  deactivate: (id)       => api.delete(`/customers/${id}`),
-  addNote:    (id, note) => api.post(`/customers/${id}/notes`, { note }),
-  getNotes:   (id)       => api.get(`/customers/${id}/notes`),
-};
+export function fetchCustomers(params = {}) {
+  const cleanParams = Object.fromEntries(
+    Object.entries(params).filter(
+      ([, v]) => v !== undefined && v !== null && v !== ''
+    )
+  );
+  return api.get('/customers', { params: cleanParams });
+}
+
+export function fetchCustomer(id) {
+  return api.get(`/customers/${id}`);
+}
+
+export function createCustomer(data) {
+  return api.post('/customers', data);
+}
+
+export function updateCustomer(id, data) {
+  return api.put(`/customers/${id}`, data);
+}
+
+export function deleteCustomer(id) {
+  return api.delete(`/customers/${id}`);
+}

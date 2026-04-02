@@ -152,7 +152,7 @@ export function Sidebar() {
           </span>
         )}
         <button
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
           onClick={() => setCollapsed((v) => !v)}
           className="ms-auto flex h-7 w-7 items-center justify-center rounded-md hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 flex-shrink-0 transition-colors"
         >
@@ -188,13 +188,6 @@ export function Sidebar() {
                 const active = location.pathname === item.path ||
                   (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
                 const label = t(item.key);
-
-                const linkStyle = {
-                  backgroundColor: active ? 'hsl(var(--sidebar-active-bg))' : 'transparent',
-                  color: active
-                    ? 'hsl(var(--sidebar-active-fg))'
-                    : 'hsl(var(--sidebar-fg))',
-                };
 
                 const content = (
                   <NavLink

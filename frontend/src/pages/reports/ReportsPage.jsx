@@ -1,3 +1,16 @@
+import { useEffect } from 'react';
+
 export default function ReportsPage() {
-  return <div className="p-8"><h1 className="text-2xl font-semibold">Reports — Coming in Wave 1</h1></div>;
+  useEffect(() => { document.title = 'Reports — BCC'; }, []);
+
+  return (
+    <div className="page-container">
+      <div className="page-header">
+        <h1 className="page-title">Reports</h1>
+      </div>
+      <div className="bcc-card">
+        <p className="text-muted-foreground">Coming soon.</p>
+      </div>
+    </div>
+  );
 }

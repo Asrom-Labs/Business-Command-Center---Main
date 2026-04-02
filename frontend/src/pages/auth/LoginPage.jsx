@@ -10,7 +10,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuthStore } from '@/stores/authStore';
+import { useOrgStore } from '@/stores/orgStore';
 import { authApi } from '@/api/auth';
+import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import i18n, { SUPPORTED_LANGUAGES } from '@/lib/i18n';
 
@@ -26,11 +28,11 @@ const loginSchema = z.object({
     .min(8, 'auth.login.errors.passwordMinLength'),
 });
 
-// ─── Brand panel feature highlights ───────────────────────────────────────
-const FEATURES = [
-  { Icon: TrendingUp, label: 'Sales & revenue tracking'          },
-  { Icon: Package,    label: 'Inventory & stock management'       },
-  { Icon: Users,      label: 'Customers & suppliers in one place' },
+// ─── Brand panel feature highlights (icons only — labels use t()) ─────────
+const FEATURE_ICONS = [
+  { Icon: Package,    key: 'auth.login.features.inventory' },
+  { Icon: TrendingUp, key: 'auth.login.features.orders'    },
+  { Icon: Users,      key: 'auth.login.features.reports'   },
 ];
 
 // ─── Map API error responses to i18n keys ─────────────────────────────────
@@ -48,6 +50,7 @@ export default function LoginPage() {
   const { t } = useTranslation();
   const navigate    = useNavigate();
   const loginStore  = useAuthStore((s) => s.login);
+  const setOrg      = useOrgStore((s) => s.setOrg);
 
   const [showPassword, setShowPassword] = useState(false);
   const [apiError, setApiError]         = useState('');
@@ -78,7 +81,16 @@ export default function LoginPage() {
       }
 
       loginStore(token, user);
-      toast.success(`Welcome back, ${user.name}!`);
+
+      // Fetch org profile so currency is set for the entire session
+      try {
+        const orgResult = await api.get('/organizations/me');
+        if (orgResult?.data) setOrg(orgResult.data);
+      } catch {
+        // Non-blocking — dashboard will still load with default currency
+      }
+
+      toast.success(t('auth.login.welcomeBack', { name: user.name }));
       navigate('/dashboard', { replace: true });
     } catch (err) {
       setApiError(t(getApiErrorKey(err)));
@@ -94,14 +106,13 @@ export default function LoginPage() {
     <div className="relative flex min-h-screen w-full">
 
       {/* ── Language toggle — absolute top-right, always visible ── */}
-      <div className="absolute right-4 top-4 z-50">
+      <div className="absolute end-4 top-4 z-50">
         <button
           type="button"
           onClick={() => i18n.changeLanguage(targetLang.code)}
           aria-label={`Switch to ${targetLang.label}`}
           className="flex items-center gap-1.5 rounded-full border border-border bg-background/80 px-3 py-1.5 text-xs font-semibold text-foreground backdrop-blur-sm transition-colors hover:bg-accent"
         >
-          <span>{targetLang.flag}</span>
           <span>{targetLang.label}</span>
         </button>
       </div>
@@ -163,12 +174,12 @@ export default function LoginPage() {
               {t('auth.login.subtitle')}
             </p>
             <div className="space-y-3">
-              {FEATURES.map(({ Icon, label }) => (
-                <div key={label} className="flex items-center gap-3">
+              {FEATURE_ICONS.map(({ Icon, key }) => (
+                <div key={key} className="flex items-center gap-3">
                   <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-white/15 bg-white/10">
                     <Icon className="h-4 w-4 text-white/85" />
                   </div>
-                  <span className="text-sm font-medium text-white/75">{label}</span>
+                  <span className="text-sm font-medium text-white/75">{t(key)}</span>
                 </div>
               ))}
             </div>
@@ -257,7 +268,7 @@ export default function LoginPage() {
                   aria-invalid={!!errors.password}
                   aria-describedby={errors.password ? 'password-error' : undefined}
                   className={cn(
-                    'h-11 pr-11',
+                    'h-11 pe-11',
                     errors.password && 'border-destructive focus-visible:ring-destructive/30'
                   )}
                   {...register('password')}
@@ -266,7 +277,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label={showPassword ? t('auth.login.hidePassword') : t('auth.login.showPassword')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="absolute end-3 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {showPassword
                     ? <EyeOff className="h-4 w-4" />

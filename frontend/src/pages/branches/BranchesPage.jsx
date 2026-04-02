@@ -1,3 +1,16 @@
+import { useEffect } from 'react';
+
 export default function BranchesPage() {
-  return <div className="p-8"><h1 className="text-2xl font-semibold">Branches — Coming in Wave 1</h1></div>;
+  useEffect(() => { document.title = 'Branches — BCC'; }, []);
+
+  return (
+    <div className="page-container">
+      <div className="page-header">
+        <h1 className="page-title">Branches</h1>
+      </div>
+      <div className="bcc-card">
+        <p className="text-muted-foreground">Coming soon.</p>
+      </div>
+    </div>
+  );
 }

@@ -1,9 +1,26 @@
 import api from '@/lib/api';
 
-export const suppliersApi = {
-  list:       (params)   => api.get('/suppliers', { params }),
-  getOne:     (id)       => api.get(`/suppliers/${id}`),
-  create:     (data)     => api.post('/suppliers', data),
-  update:     (id, data) => api.patch(`/suppliers/${id}`, data),
-  deactivate: (id)       => api.delete(`/suppliers/${id}`),
-};
+export function fetchSuppliers(params = {}) {
+  const cleanParams = Object.fromEntries(
+    Object.entries(params).filter(
+      ([, v]) => v !== undefined && v !== null && v !== ''
+    )
+  );
+  return api.get('/suppliers', { params: cleanParams });
+}
+
+export function fetchSupplier(id) {
+  return api.get(`/suppliers/${id}`);
+}
+
+export function createSupplier(data) {
+  return api.post('/suppliers', data);
+}
+
+export function updateSupplier(id, data) {
+  return api.put(`/suppliers/${id}`, data);
+}
+
+export function deleteSupplier(id) {
+  return api.delete(`/suppliers/${id}`);
+}

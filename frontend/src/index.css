@@ -121,6 +121,18 @@
     @apply bg-card text-card-foreground rounded-lg border shadow-sm p-6;
   }
 
+  .bcc-card-padded {
+    @apply bg-card text-card-foreground rounded-lg border shadow-sm p-6;
+  }
+
+  .page-header {
+    @apply flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3;
+  }
+
+  .page-title {
+    @apply text-2xl font-bold tracking-tight;
+  }
+
   .field-error {
     @apply text-destructive text-xs mt-1;
   }
@@ -145,6 +157,12 @@
   }
   .status-confirmed {
     @apply bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400;
+  }
+  .status-shipped {
+    @apply bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400;
+  }
+  .status-delivered {
+    @apply bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400;
   }
 
   /* Animations */

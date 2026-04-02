@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Moon, Sun, Globe, ChevronDown, LogOut, User, KeyRound } from 'lucide-react';
 import { useThemeStore } from '@/stores/themeStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useOrgStore } from '@/stores/orgStore';
 import i18n, { SUPPORTED_LANGUAGES } from '@/lib/i18n';
 
 function useClickOutside(ref, handler) {
@@ -59,9 +60,11 @@ export function Header() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useThemeStore();
   const { user, logout } = useAuthStore();
+  const clearOrg = useOrgStore((s) => s.clearOrg);
 
   const handleLogout = () => {
     logout();
+    clearOrg();
     navigate('/login', { replace: true });
   };
 
@@ -96,7 +99,7 @@ export function Header() {
             className="flex h-8 items-center gap-1.5 rounded-md px-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
           >
             <Globe className="h-4 w-4" />
-            <span className="font-medium">{currentLang.flag} {currentLang.code.toUpperCase()}</span>
+            <span className="font-medium">{currentLang.code.toUpperCase()}</span>
             <ChevronDown className="h-3 w-3" />
           </button>
         }
@@ -109,7 +112,7 @@ export function Header() {
               lang.code === i18n.language ? 'font-semibold text-primary' : ''
             }`}
           >
-            {lang.flag} {lang.label}
+            {lang.label}
           </button>
         ))}
       </Dropdown>
@@ -118,7 +121,7 @@ export function Header() {
       <Dropdown
         trigger={
           <button
-            aria-label="User menu"
+            aria-label={t('header.userMenu')}
             className="flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
           >
             {/* Avatar */}
