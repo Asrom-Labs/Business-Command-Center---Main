@@ -6,6 +6,8 @@
 
 @layer base {
   :root {
+    /* Tell the browser to paint native controls (option popups, scrollbars) with light chrome */
+    color-scheme: light;
     /* ── Shadcn/ui CSS variables ── */
     --background: 36 33% 97%;
     --foreground: 222 20% 12%;
@@ -44,6 +46,8 @@
   }
 
   .dark {
+    /* Tell the browser to paint native controls (option popups, scrollbars) with dark chrome */
+    color-scheme: dark;
     --background: 222 25% 9%;
     --foreground: 210 20% 92%;
     --card: 222 25% 11%;
@@ -109,6 +113,17 @@
   }
   ::-webkit-scrollbar-thumb:hover {
     @apply bg-muted-foreground/50;
+  }
+
+  /* Native <select> option lists: Tailwind classes on the <select> do not cascade
+     into the OS-rendered popup, so theme them explicitly here (BUG-13). The variables
+     resolve per active theme (:root vs .dark), so this covers both. */
+  select option {
+    background-color: hsl(var(--popover));
+    color: hsl(var(--popover-foreground));
+  }
+  select option:disabled {
+    color: hsl(var(--muted-foreground));
   }
 }
 
