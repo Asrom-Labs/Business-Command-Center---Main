@@ -42,7 +42,7 @@ const list = async (req, res, next) => {
 const create = async (req, res, next) => {
   try {
     const {
-      customer_id = null, location_id, channel = 'in_store',
+      customer_id = null, location_id, channel = 'walk_in',
       discount = 0, tax = 0, note = null, items,
     } = req.body;
     const orgId = req.user.org_id;

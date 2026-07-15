@@ -40,6 +40,7 @@ import { fetchCategories } from '@/api/categories';
 import { fetchUnits }      from '@/api/units';
 import { formatCurrency, getErrorMessage } from '@/lib/utils';
 import { useOrg } from '@/hooks/useOrg';
+import { useAuth } from '@/hooks/useAuth';
 
 // ── Validation schema (module level — i18n key strings) ─────────────────────
 const productSchema = z.object({
@@ -79,6 +80,7 @@ const productSchema = z.object({
 // ── Component ───────────────────────────────────────────────────────────────
 export default function ProductsPage() {
   const { t } = useTranslation();
+  const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const { currency: rawCurrency } = useOrg();
   const currency = rawCurrency || 'JOD';
@@ -362,6 +364,7 @@ export default function ProductsPage() {
       className: 'text-end w-24',
       render: (row) => (
         <div className="flex items-center justify-end gap-1">
+          {isAdmin && (<>
           <Button
             variant="ghost"
             size="sm"
@@ -379,6 +382,7 @@ export default function ProductsPage() {
           >
             <Trash2 className="h-4 w-4" />
           </Button>
+          </>)}
         </div>
       ),
     },
@@ -390,12 +394,12 @@ export default function ProductsPage() {
       <PageHeader
         title={t('products.title')}
         subtitle={t('products.subtitle')}
-        action={
+        action={isAdmin ? (
           <Button onClick={openAddModal}>
             <Plus className="h-4 w-4 me-2" />
             {t('products.addProduct')}
           </Button>
-        }
+        ) : null}
       />
 
       {/* Filter tabs + Search */}

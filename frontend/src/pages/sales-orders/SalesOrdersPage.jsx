@@ -34,6 +34,7 @@ import { formatCurrency, formatDate, getErrorMessage } from '@/lib/utils';
 import { useOrg } from '@/hooks/useOrg';
 import { recordPayment } from '@/api/payments';
 import { createReturn, fetchReturnReasons } from '@/api/returns';
+import { useAuth } from '@/hooks/useAuth';
 
 // ── Zod schema — header fields only (items managed by useFieldArray) ────────
 const soHeaderSchema = z.object({
@@ -65,6 +66,7 @@ const salesOrderReturnSchema = z.object({
 export default function SalesOrdersPage() {
   // 1. Hooks
   const { t } = useTranslation();
+  const { isStaff } = useAuth();
   const queryClient = useQueryClient();
   const { currency: rawCurrency } = useOrg();
   const currency = rawCurrency || 'JOD';
@@ -220,6 +222,8 @@ export default function SalesOrdersPage() {
     mutationFn: (data) => createSalesOrder(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['stock'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       toast.success(t('salesOrders.addSuccess'));
       setCreateModalOpen(false);
       setIsOneTimeCustomer(false);
@@ -236,6 +240,7 @@ export default function SalesOrdersPage() {
     mutationFn: ({ id, status }) => updateSalesOrderStatus(id, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       toast.success(t('salesOrders.statusSuccess'));
     },
     onError: (error) => toast.error(getErrorMessage(error)),
@@ -245,6 +250,8 @@ export default function SalesOrdersPage() {
     mutationFn: (id) => updateSalesOrderStatus(id, 'cancelled'),
     onSuccess: (_, cancelledId) => {
       queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['stock'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       toast.success(t('salesOrders.cancelSuccess'));
       setCancelTarget(null);
       if (cancelledId === selectedId) setSelectedId(null);
@@ -281,6 +288,7 @@ export default function SalesOrdersPage() {
     mutationFn: (data) => recordPayment(selectedId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       toast.success(t('payments.recordSuccess'));
       setIsPaymentOpen(false);
       paymentForm.reset();
@@ -302,6 +310,8 @@ export default function SalesOrdersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
       queryClient.invalidateQueries({ queryKey: ['returns'] });
+      queryClient.invalidateQueries({ queryKey: ['stock'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       toast.success(t('returns.createSuccess'));
       setIsReturnOpen(false);
       returnForm.reset();
@@ -479,10 +489,12 @@ export default function SalesOrdersPage() {
             title={t('salesOrders.title')}
             subtitle={t('salesOrders.subtitle')}
             action={
-              <Button onClick={openCreateModal}>
-                <Plus className="h-4 w-4 me-2" />
-                {t('salesOrders.newOrder')}
-              </Button>
+              isStaff ? (
+                <Button onClick={openCreateModal}>
+                  <Plus className="h-4 w-4 me-2" />
+                  {t('salesOrders.newOrder')}
+                </Button>
+              ) : null
             }
           />
 
@@ -684,7 +696,7 @@ export default function SalesOrdersPage() {
               </div>
 
               {/* Status action buttons */}
-              {selectedSO.status !== 'delivered' && selectedSO.status !== 'cancelled' && (
+              {isStaff && selectedSO.status !== 'delivered' && selectedSO.status !== 'cancelled' && (
                 <div className="flex flex-wrap gap-3">
                   {selectedSO.status === 'pending' && (
                     <Button
@@ -725,6 +737,7 @@ export default function SalesOrdersPage() {
               )}
 
               {/* Record Payment + Create Return buttons */}
+              {isStaff && (
               <div className="flex flex-wrap gap-3">
                 {parseFloat(selectedSO?.total || '0') - parseFloat(selectedSO?.amount_paid || '0') > 0 && (
                   <Button onClick={openPaymentModal} disabled={paymentMutation.isPending || returnMutation.isPending}>
@@ -737,6 +750,7 @@ export default function SalesOrdersPage() {
                   </Button>
                 )}
               </div>
+              )}
 
               {/* Cancel confirmation modal */}
               <ConfirmModal

@@ -92,7 +92,7 @@ const NAV_GROUPS = [
     items: [
       { key: 'nav.items.payments', path: '/payments', icon: 'CreditCard', minRole: 'staff' },
       { key: 'nav.items.expenses', path: '/expenses', icon: 'Wallet', minRole: 'staff' },
-      { key: 'nav.items.reports', path: '/reports', icon: 'BarChart3', minRole: 'readonly' },
+      { key: 'nav.items.reports', path: '/reports', icon: 'BarChart3', minRole: 'staff' },
       { key: 'nav.items.auditLog', path: '/audit-log', icon: 'ScrollText', minRole: 'admin' },
     ],
   },

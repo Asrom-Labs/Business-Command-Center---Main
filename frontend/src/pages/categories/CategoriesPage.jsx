@@ -21,6 +21,7 @@ import ConfirmModal from '@/components/shared/ConfirmModal';
 import DataTable from '@/components/shared/DataTable';
 import PageHeader from '@/components/shared/PageHeader';
 import SearchInput from '@/components/shared/SearchInput';
+import { useAuth } from '@/hooks/useAuth';
 import {
   createCategory,
   deleteCategory,
@@ -38,6 +39,7 @@ const categorySchema = z.object({
 // ── Component ───────────────────────────────────────────────────────────────
 export default function CategoriesPage() {
   const { t } = useTranslation();
+  const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
 
   const [page, setPage] = useState(1);
@@ -189,6 +191,7 @@ export default function CategoriesPage() {
       className: 'text-end w-24',
       render: (row) => (
         <div className="flex items-center justify-end gap-1">
+          {isAdmin && (<>
           <Button
             variant="ghost"
             size="sm"
@@ -206,6 +209,7 @@ export default function CategoriesPage() {
           >
             <Trash2 className="h-4 w-4" />
           </Button>
+          </>)}
         </div>
       ),
     },
@@ -217,12 +221,12 @@ export default function CategoriesPage() {
       <PageHeader
         title={t('categories.title')}
         subtitle={t('categories.subtitle')}
-        action={
+        action={isAdmin ? (
           <Button onClick={openAddModal}>
             <Plus className="h-4 w-4 me-2" />
             {t('categories.addCategory')}
           </Button>
-        }
+        ) : null}
       />
 
       {/* Search */}

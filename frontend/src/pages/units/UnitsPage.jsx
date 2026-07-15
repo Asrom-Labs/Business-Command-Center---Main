@@ -20,6 +20,7 @@ import ConfirmModal from '@/components/shared/ConfirmModal';
 import DataTable from '@/components/shared/DataTable';
 import PageHeader from '@/components/shared/PageHeader';
 import SearchInput from '@/components/shared/SearchInput';
+import { useAuth } from '@/hooks/useAuth';
 import {
   createUnit,
   deleteUnit,
@@ -37,6 +38,7 @@ const unitSchema = z.object({
 // ── Component ───────────────────────────────────────────────────────────────
 export default function UnitsPage() {
   const { t } = useTranslation();
+  const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
 
   const [page, setPage] = useState(1);
@@ -182,6 +184,7 @@ export default function UnitsPage() {
       className: 'text-end w-24',
       render: (row) => (
         <div className="flex items-center justify-end gap-1">
+          {isAdmin && (<>
           <Button
             variant="ghost"
             size="sm"
@@ -199,6 +202,7 @@ export default function UnitsPage() {
           >
             <Trash2 className="h-4 w-4" />
           </Button>
+          </>)}
         </div>
       ),
     },
@@ -210,12 +214,12 @@ export default function UnitsPage() {
       <PageHeader
         title={t('units.title')}
         subtitle={t('units.subtitle')}
-        action={
+        action={isAdmin ? (
           <Button onClick={openAddModal}>
             <Plus className="h-4 w-4 me-2" />
             {t('units.addUnit')}
           </Button>
-        }
+        ) : null}
       />
 
       {/* Search */}

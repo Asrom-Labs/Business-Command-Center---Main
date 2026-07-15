@@ -11,7 +11,7 @@ router.use(authenticate);
 
 router.get('/', [
   qv('status').optional().isIn(['pending', 'partially_paid', 'paid', 'processing', 'shipped', 'delivered', 'cancelled']),
-  qv('channel').optional().isIn(['in_store', 'whatsapp', 'instagram', 'snapchat', 'tiktok', 'online', 'other']),
+  qv('channel').optional().isIn(['walk_in', 'phone', 'in_store', 'whatsapp', 'instagram', 'snapchat', 'tiktok', 'online', 'other']),
   qv('customer_id').optional().isUUID(),
   qv('location_id').optional().isUUID(),
   qv('page').optional().isInt({ min: 1 }),
@@ -21,7 +21,7 @@ router.get('/', [
 router.post('/', requireMinRole('staff'), [
   body('location_id').isUUID().withMessage('location_id is required'),
   body('customer_id').optional({ nullable: true }).isUUID(),
-  body('channel').optional().isIn(['in_store', 'whatsapp', 'instagram', 'snapchat', 'tiktok', 'online', 'other']),
+  body('channel').optional().isIn(['walk_in', 'phone', 'in_store', 'whatsapp', 'instagram', 'snapchat', 'tiktok', 'online', 'other']),
   body('discount').optional({ nullable: true }).isFloat({ min: 0 }),
   body('tax').optional({ nullable: true }).isFloat({ min: 0 }),
   body('note').optional({ nullable: true }).trim(),

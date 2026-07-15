@@ -32,6 +32,14 @@ export default function StockPage() {
     setSearch('');
   };
 
+  // ── Low-stock derivation (backend returns stock_on_hand + low_stock_threshold,
+  // NOT is_low_stock — RULE-24). Threshold 0/null ⇒ never low. NUMERIC → parseFloat. ──
+  const isRowLowStock = (row) => {
+    const threshold = parseFloat(row.low_stock_threshold ?? 0);
+    const qty = parseFloat(row.stock_on_hand);
+    return threshold > 0 && !Number.isNaN(qty) && qty <= threshold;
+  };
+
   // ── Query ──
   const stockQuery = useQuery({
     queryKey: ['stock', 'list', { page, showLowStockOnly }],
@@ -87,15 +95,15 @@ export default function StockPage() {
       ),
     },
     {
-      key: 'quantity_on_hand',
+      key: 'stock_on_hand',
       header: t('stock.quantityOnHand'),
       render: (row) => (
         <span
           className={`text-sm font-medium tabular-nums ${
-            row.is_low_stock ? 'text-destructive' : 'text-foreground'
+            isRowLowStock(row) ? 'text-destructive' : 'text-foreground'
           }`}
         >
-          {row.quantity_on_hand}
+          {row.stock_on_hand}
         </span>
       ),
     },
@@ -112,7 +120,7 @@ export default function StockPage() {
       key: 'status',
       header: t('common.status'),
       render: (row) =>
-        row.is_low_stock ? (
+        isRowLowStock(row) ? (
           <StatusBadge
             status="pending"
             label={t('stock.lowStockBadge')}

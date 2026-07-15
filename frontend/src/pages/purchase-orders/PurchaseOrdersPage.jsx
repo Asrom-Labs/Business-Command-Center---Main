@@ -33,6 +33,7 @@ import { fetchSuppliers } from '@/api/suppliers';
 import { fetchProducts } from '@/api/products';
 import { fetchLocations } from '@/api/locations';
 import { formatCurrency, formatDate, getErrorMessage } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
 import { useOrg } from '@/hooks/useOrg';
 
 // ── Zod schema — header fields only (items managed by useFieldArray) ────────
@@ -48,6 +49,7 @@ const poHeaderSchema = z.object({
 export default function PurchaseOrdersPage() {
   // 1. Hooks — declared once
   const { t } = useTranslation();
+  const { isAdmin, isStaff } = useAuth();
   const queryClient = useQueryClient();
   const { currency: rawCurrency } = useOrg();
   const currency = rawCurrency || 'JOD';
@@ -217,6 +219,8 @@ export default function PurchaseOrdersPage() {
     mutationFn: ({ id, data }) => receivePurchaseOrder(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['stock'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       toast.success(t('purchaseOrders.receiveSuccess'));
       setReceiveModalOpen(false);
       receiveForm.reset({ note: '' });
@@ -379,10 +383,12 @@ export default function PurchaseOrdersPage() {
             title={t('purchaseOrders.title')}
             subtitle={t('purchaseOrders.subtitle')}
             action={
-              <Button onClick={openCreateModal}>
-                <Plus className="h-4 w-4 me-2" />
-                {t('purchaseOrders.newPO')}
-              </Button>
+              isAdmin ? (
+                <Button onClick={openCreateModal}>
+                  <Plus className="h-4 w-4 me-2" />
+                  {t('purchaseOrders.newPO')}
+                </Button>
+              ) : null
             }
           />
 
@@ -540,28 +546,30 @@ export default function PurchaseOrdersPage() {
               {/* Action buttons */}
               {(selectedPO.status === 'draft' || selectedPO.status === 'submitted' || selectedPO.status === 'partially_received') && (
                 <div className="flex flex-wrap gap-3">
-                  {selectedPO.status === 'draft' && (
+                  {isAdmin && selectedPO.status === 'draft' && (
                     <Button onClick={() => submitMutation.mutate(selectedPO.id)} disabled={submitMutation.isPending}>
                       {submitMutation.isPending && <Loader2 className="h-4 w-4 me-2 animate-spin" />}
                       {t('purchaseOrders.submitPO')}
                     </Button>
                   )}
 
-                  {(selectedPO.status === 'submitted' || selectedPO.status === 'partially_received') && (
+                  {isStaff && (selectedPO.status === 'submitted' || selectedPO.status === 'partially_received') && (
                     <Button onClick={openReceiveModal}>
                       <Package className="h-4 w-4 me-2" />
                       {t('purchaseOrders.receiveGoods')}
                     </Button>
                   )}
 
-                  <Button
-                    variant="outline"
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
-                    onClick={() => setCancelTarget(selectedPO)}
-                    disabled={cancelMutation.isPending}
-                  >
-                    {t('purchaseOrders.cancelPO')}
-                  </Button>
+                  {isAdmin && (
+                    <Button
+                      variant="outline"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+                      onClick={() => setCancelTarget(selectedPO)}
+                      disabled={cancelMutation.isPending}
+                    >
+                      {t('purchaseOrders.cancelPO')}
+                    </Button>
+                  )}
                 </div>
               )}
 

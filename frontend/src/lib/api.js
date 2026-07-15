@@ -43,6 +43,7 @@ api.interceptors.response.use(
     if (status === 401) {
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
+      localStorage.removeItem('bcc_org'); // orgStore ORG_KEY — clear stale org/currency on 401
       // Use window.location to force a full navigation (clears React state too)
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';

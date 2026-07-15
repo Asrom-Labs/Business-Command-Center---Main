@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useOrgStore } from './orgStore';
 
 /**
  * BCC Authentication Store
@@ -50,6 +51,8 @@ export const useAuthStore = create((set, get) => ({
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     set({ token: null, user: null });
+    // Also clear org/currency so it never leaks into the next session on a shared browser.
+    useOrgStore.getState().clearOrg();
   },
 
   /** Update stored user profile (e.g. after name change). */

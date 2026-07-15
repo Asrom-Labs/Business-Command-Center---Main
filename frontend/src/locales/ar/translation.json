@@ -449,7 +449,10 @@
       "phone": "هاتف",
       "whatsapp": "واتساب",
       "instagram": "إنستغرام",
-      "other": "أخرى"
+      "other": "أخرى",
+      "in_store": "في المتجر",
+      "snapchat": "سناب شات",
+      "tiktok": "تيك توك"
     },
     "filters": {
       "all": "الكل",

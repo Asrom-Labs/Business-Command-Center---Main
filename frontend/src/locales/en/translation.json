@@ -449,7 +449,10 @@
       "phone": "Phone",
       "whatsapp": "WhatsApp",
       "instagram": "Instagram",
-      "other": "Other"
+      "other": "Other",
+      "in_store": "In-store",
+      "snapchat": "Snapchat",
+      "tiktok": "TikTok"
     },
     "filters": {
       "all": "All",

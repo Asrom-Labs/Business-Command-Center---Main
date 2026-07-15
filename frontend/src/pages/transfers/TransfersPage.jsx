@@ -26,6 +26,7 @@ import {
 import { fetchLocations } from '@/api/locations';
 import { fetchProducts } from '@/api/products';
 import { formatDate, getErrorMessage } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
 
 // ── Zod schema (module level — i18n key strings) ────────────────────────────
 const createTransferSchema = z.object({
@@ -45,6 +46,7 @@ export default function TransfersPage() {
   const [cancelTarget, setCancelTarget] = useState(null);
 
   const { t } = useTranslation();
+  const { isAdmin, isStaff } = useAuth();
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -104,7 +106,7 @@ export default function TransfersPage() {
           <Button variant="ghost" size="sm" onClick={() => setSelectedId(row.id)}>
             {t('common.view')}
           </Button>
-          {row.status === 'pending' && (
+          {isAdmin && row.status === 'pending' && (
             <Button
               variant="ghost"
               size="sm"
@@ -183,6 +185,8 @@ export default function TransfersPage() {
     mutationFn: (id) => confirmTransfer(id),
     onSuccess: (_, confirmedId) => {
       queryClient.invalidateQueries({ queryKey: ['transfers'] });
+      queryClient.invalidateQueries({ queryKey: ['stock'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       toast.success(t('transfers.confirmSuccess'));
       setConfirmTarget(null);
     },
@@ -268,10 +272,12 @@ export default function TransfersPage() {
             title={t('transfers.title')}
             subtitle={t('transfers.subtitle')}
             action={
-              <Button onClick={handleOpenCreate}>
-                <Plus className="h-4 w-4 me-2" />
-                {t('transfers.newTransfer')}
-              </Button>
+              isStaff ? (
+                <Button onClick={handleOpenCreate}>
+                  <Plus className="h-4 w-4 me-2" />
+                  {t('transfers.newTransfer')}
+                </Button>
+              ) : null
             }
           />
 
@@ -418,7 +424,7 @@ export default function TransfersPage() {
                 )}
               </div>
 
-              {transfer.status === 'pending' && (
+              {isAdmin && transfer.status === 'pending' && (
                 <div className="flex flex-wrap gap-3">
                   <Button
                     onClick={() => setConfirmTarget(transfer.id)}

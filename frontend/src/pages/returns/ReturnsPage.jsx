@@ -18,6 +18,7 @@ import SearchInput from '@/components/shared/SearchInput';
 import { fetchReturns, createReturn, fetchReturnReasons } from '@/api/returns';
 import { fetchSalesOrder } from '@/api/salesOrders';
 import { useOrg } from '@/hooks/useOrg';
+import { useAuth } from '@/hooks/useAuth';
 import { formatCurrency, formatDate, getErrorMessage } from '@/lib/utils';
 
 const createReturnSchema = z.object({
@@ -36,6 +37,7 @@ export default function ReturnsPage() {
   const [returnItems, setReturnItems] = useState([]);
 
   const { t } = useTranslation();
+  const { isStaff } = useAuth();
   const queryClient = useQueryClient();
   const { currency: rawCurrency } = useOrg();
   const currency = rawCurrency || 'JOD';
@@ -116,6 +118,8 @@ export default function ReturnsPage() {
     mutationFn: (data) => createReturn(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['returns'] });
+      queryClient.invalidateQueries({ queryKey: ['stock'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       toast.success(t('returns.createSuccess'));
       setIsCreateOpen(false);
     },
@@ -182,7 +186,7 @@ export default function ReturnsPage() {
         <PageHeader
           title={t('returns.title')}
           subtitle={t('returns.subtitle')}
-          action={<Button onClick={openCreateModal}>{t('returns.newReturn')}</Button>}
+          action={isStaff ? <Button onClick={openCreateModal}>{t('returns.newReturn')}</Button> : null}
         />
 
         {returnsQuery.isError && (

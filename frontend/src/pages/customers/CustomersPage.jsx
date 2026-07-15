@@ -25,6 +25,7 @@ import {
   fetchCustomers, updateCustomer,
 } from '@/api/customers';
 import { getErrorMessage } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
 import ImportModal from '@/components/shared/ImportModal';
 import { Upload } from 'lucide-react';
 
@@ -46,6 +47,7 @@ const customerSchema = z.object({
 // ── Component ───────────────────────────────────────────────────────────────
 export default function CustomersPage() {
   const { t } = useTranslation();
+  const { isAdmin, isStaff } = useAuth();
   const queryClient = useQueryClient();
 
   const [page, setPage] = useState(1);
@@ -201,23 +203,27 @@ export default function CustomersPage() {
       className: 'text-end w-24',
       render: (row) => (
         <div className="flex items-center justify-end gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => openEditModal(row)}
-            aria-label={t('common.edit')}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-            onClick={() => setDeleteTarget(row)}
-            aria-label={t('common.delete')}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          {isStaff && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => openEditModal(row)}
+              aria-label={t('common.edit')}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          )}
+          {isAdmin && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={() => setDeleteTarget(row)}
+              aria-label={t('common.delete')}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       ),
     },
@@ -240,16 +246,18 @@ export default function CustomersPage() {
         title={t('customers.title')}
         subtitle={t('customers.subtitle')}
         action={
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setIsImportOpen(true)}>
-              <Upload className="h-4 w-4 me-2" />
-              {t('import.importButton')}
-            </Button>
-            <Button onClick={openAddModal}>
-              <Plus className="h-4 w-4 me-2" />
-              {t('customers.addCustomer')}
-            </Button>
-          </div>
+          isStaff ? (
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setIsImportOpen(true)}>
+                <Upload className="h-4 w-4 me-2" />
+                {t('import.importButton')}
+              </Button>
+              <Button onClick={openAddModal}>
+                <Plus className="h-4 w-4 me-2" />
+                {t('customers.addCustomer')}
+              </Button>
+            </div>
+          ) : null
         }
       />
 

@@ -275,7 +275,7 @@ CREATE TABLE IF NOT EXISTS sales_orders (
   customer_id     UUID                   REFERENCES customers(id)     ON DELETE RESTRICT,
   location_id     UUID          NOT NULL REFERENCES locations(id)     ON DELETE RESTRICT,
   user_id         UUID                   REFERENCES users(id)         ON DELETE RESTRICT,
-  channel         VARCHAR(30)   NOT NULL DEFAULT 'in_store' CHECK (channel IN ('in_store','whatsapp','instagram','snapchat','tiktok','online','other')),
+  channel         VARCHAR(30)   NOT NULL DEFAULT 'walk_in' CHECK (channel IN ('walk_in','phone','in_store','whatsapp','instagram','snapchat','tiktok','online','other')),
   status          VARCHAR(20)   NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','partially_paid','paid','processing','shipped','delivered','cancelled')),
   subtotal        NUMERIC(12,2) NOT NULL DEFAULT 0,
   discount        NUMERIC(12,2) NOT NULL DEFAULT 0,
