@@ -18,7 +18,7 @@ export function createSupplier(data) {
 }
 
 export function updateSupplier(id, data) {
-  return api.put(`/suppliers/${id}`, data);
+  return api.patch(`/suppliers/${id}`, data);
 }
 
 export function deleteSupplier(id) {

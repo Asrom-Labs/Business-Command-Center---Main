@@ -2,10 +2,10 @@
 ## Business Command Center — Asrom Labs
 ### The Single Source of Truth for All Development Sessions
 
-**Version:** 4.6
-**Date:** 28 Mar 2026
-**Status:** Wave 3 COMPLETE (13 pages) — Wave 4 Pre-Build Audit Complete — Awaiting Postman verification of 19 API shapes before Wave 4 build begins
-**Build:** PASS — 3,046 modules — 0 errors (after Wave 3 Prompt 5 + Wave 4 pre-build audit, 28 Mar 2026)
+**Version:** 4.8
+**Date:** 2 Apr 2026 (audit executed 15 Jul 2026)
+**Status:** FULL PROJECT STATE AUDIT COMPLETE (verified reality reset) — 13/22 pages built, 9 Wave 4 placeholders confirmed — 2 new HIGH bugs found (BUG-11 channels, BUG-12 stock fields) — Wave 4 API modules already exist on disk (unwired) — Postman checklist shrunk 19→~4 — see Section 14 for verified product gaps and revised wave plan
+**Build:** PASS — 3,048 modules — 0 errors (verified during audit)
 
 ---
 
@@ -115,11 +115,11 @@ Target market: multi-location retail businesses (1-5 branches) selling clothing,
 | `/categories` | `src/pages/categories/CategoriesPage.jsx` | ✅ Complete |
 | `/units` | `src/pages/units/UnitsPage.jsx` | ✅ Complete |
 | `/products` | `src/pages/products/ProductsPage.jsx` | ✅ Complete |
-| `/stock` | `src/pages/stock/StockPage.jsx` | ✅ Complete |
+| `/stock` | `src/pages/stock/StockPage.jsx` | ✅ Complete — ⚠ BUG-12 open (reads `quantity_on_hand`/`is_low_stock`; backend returns `stock_on_hand`, no `is_low_stock` → blank qty column) |
 | `/suppliers` | `src/pages/suppliers/SuppliersPage.jsx` | ✅ Complete |
 | `/customers` | `src/pages/customers/CustomersPage.jsx` | ✅ Complete |
 | `/purchase-orders` | `src/pages/purchase-orders/PurchaseOrdersPage.jsx` | ✅ Complete |
-| `/sales-orders` | `src/pages/sales-orders/SalesOrdersPage.jsx` | ✅ Complete |
+| `/sales-orders` | `src/pages/sales-orders/SalesOrdersPage.jsx` | ✅ Complete — ⚠ BUG-11 open (channel enum mismatch vs backend) |
 | `/payments` | `src/pages/payments/PaymentsPage.jsx` | ✅ Complete |
 | `/returns` | `src/pages/returns/ReturnsPage.jsx` | ✅ Complete |
 | `/transfers` | `src/pages/transfers/TransfersPage.jsx` | ✅ Complete |
@@ -132,10 +132,12 @@ Target market: multi-location retail businesses (1-5 branches) selling clothing,
 ### 2.4 Backend Status
 
 - Deployed: Railway — confirmed live
-- Total endpoints: 104 across 19 modules
-- Status: 100% complete — no open backend code issues
+- Total endpoints: **94 across 20 modules** (verified by route-file count, full-state audit; the old "104 across 19" claim was wrong). Per module: auth 4, organizations 2, branches 5, locations 5, users 5, categories 5, units 5, products 5, product-variants 5, customers 6, suppliers 5, transfers 5, purchase-orders 5, sales-orders 4, returns 4, expenses 10, stock 4, payments 3, reports 6, audit-log 1. Plus non-API GET /health.
+- Status: functionally complete. Full-state audit verdicts: multi-tenancy PASS (all queries org-scoped), SQL fully parameterized, all ~48 mutating routes validated, all stock flows transactional (withTransaction + advisory locks). Minor open items: expenses.location_id and stock.adjust.variant_id not org-validated (reference injection, LOW-MED); customers.addNote writes no audit entry; pool SSL rejectUnauthorized:false; no trust proxy setting.
+- **No password-reset/forgot-password flow exists** (backend or frontend). POST /api/auth/register EXISTS and is public (creates org + Main Branch + Main Warehouse + owner in one transaction) — but no frontend signup page calls it.
+- Schema IS in the repo: `backend/db/schema.sql` (v1.3, 30 tables, seeds) + migrations 002-004. Orphan: `supplier_payments` table has no controller/route.
 - All Wave 3 endpoint groups (payments, returns, transfers) fully Postman-tested ✅ 27 Mar 2026
-- Wave 4 endpoint groups (organizations, branches, locations, users, expenses, reports, audit-log) not yet Postman-tested — 19 specific items to verify (see Section 13.1)
+- Wave 4 endpoint groups: now largely verified from code by the full-state audit — remaining Postman items shrunk from 19 to ~4 (see Section 13.1 annotations)
 
 ---
 
@@ -145,7 +147,7 @@ Target market: multi-location retail businesses (1-5 branches) selling clothing,
 
 ```
 frontend/src/
-├── api/
+├── api/                   (20 modules — verified full-state audit)
 │   ├── auth.js
 │   ├── dashboard.js
 │   ├── categories.js
@@ -159,12 +161,24 @@ frontend/src/
 │   ├── locations.js       (list only — MUST be extended in Wave 4 P2, never replaced)
 │   ├── transfers.js
 │   ├── payments.js
-│   └── returns.js
+│   ├── returns.js
+│   ├── organizations.js   (EXISTS, unwired — note: plural name, not organization.js)
+│   ├── branches.js        (EXISTS, unwired — Wave 4)
+│   ├── users.js           (EXISTS, unwired — Wave 4)
+│   ├── expenses.js        (EXISTS, unwired — Wave 4)
+│   ├── reports.js         (EXISTS, unwired — Wave 4; salesByChannel not salesBySource)
+│   └── auditLog.js        (EXISTS, unwired — Wave 4)
 ├── components/
 │   ├── ErrorBoundary.jsx
 │   ├── shared/
+│   │   ├── ConfirmModal.jsx
+│   │   ├── DataTable.jsx
 │   │   ├── Header.jsx
-│   │   └── Sidebar.jsx
+│   │   ├── ImportModal.jsx   (5-screen xlsx import wizard — wired into Customers + Suppliers)
+│   │   ├── PageHeader.jsx
+│   │   ├── SearchInput.jsx
+│   │   ├── Sidebar.jsx
+│   │   └── StatusBadge.jsx
 │   └── ui/           (shadcn/ui primitives — button, input, label, etc.)
 ├── hooks/
 │   ├── useAuth.js
@@ -294,8 +308,8 @@ frontend/src/
 | `units.js` | fetchUnits, fetchUnit, createUnit, updateUnit, deleteUnit |
 | `products.js` | fetchProducts, fetchProduct, createProduct, updateProduct, deleteProduct — includes cleanParams util |
 | `stock.js` | fetchStock — includes cleanParams util, supports low_stock filter |
-| `suppliers.js` | fetchSuppliers, fetchSupplier, createSupplier, updateSupplier (PUT), deleteSupplier |
-| `customers.js` | fetchCustomers, fetchCustomer, createCustomer, updateCustomer (PUT), deleteCustomer |
+| `suppliers.js` | fetchSuppliers, fetchSupplier, createSupplier, updateSupplier (PATCH), deleteSupplier |
+| `customers.js` | fetchCustomers, fetchCustomer, createCustomer, updateCustomer (PATCH), deleteCustomer |
 | `purchaseOrders.js` | fetchPurchaseOrders, fetchPurchaseOrder, createPurchaseOrder, updatePurchaseOrderStatus (PATCH), receivePurchaseOrder (POST) |
 | `salesOrders.js` | fetchSalesOrders, fetchSalesOrder, createSalesOrder (POST), updateSalesOrderStatus (PATCH) |
 | `locations.js` | fetchLocations only — no CRUD. Used by PurchaseOrdersPage + TransfersPage with queryKey ['locations','all']. MUST be extended (not replaced) in Wave 4 P2. See RULE-31. |
@@ -804,45 +818,45 @@ export function fetchLowStockItems() {
 - GET /api/branches — List branches
 - POST /api/branches — Create branch
 - GET /api/branches/:id — Get single
-- PUT /api/branches/:id — Update
+- PATCH /api/branches/:id — Update
 - DELETE /api/branches/:id — Delete
 
 **Locations**
 - GET /api/locations — List locations
 - POST /api/locations — Create location
 - GET /api/locations/:id — Get single
-- PUT /api/locations/:id — Update
+- PATCH /api/locations/:id — Update
 - DELETE /api/locations/:id — Delete
 
 **Users**
 - GET /api/users — List users (admin+)
 - POST /api/users — Create user
 - GET /api/users/:id — Get single
-- PUT /api/users/:id — Update
+- PATCH /api/users/:id — Update
 - DELETE /api/users/:id — Delete
 
 **Categories** ★ Wave 2
 - GET /api/categories — List categories ★
 - POST /api/categories — Create category ★
 - GET /api/categories/:id — Get single ★
-- PUT /api/categories/:id — Update ★
+- PATCH /api/categories/:id — Update ★
 - DELETE /api/categories/:id — Delete ★
 
 **Units** ★ Wave 2
 - GET /api/units — List units ★
 - POST /api/units — Create unit ★
 - GET /api/units/:id — Get single ★
-- PUT /api/units/:id — Update ★
+- PATCH /api/units/:id — Update ★
 - DELETE /api/units/:id — Delete ★
 
 **Products** ★ Wave 2
 - GET /api/products — List products (paginated) ★
 - POST /api/products — Create product ★
 - GET /api/products/:id — Get single ★
-- PUT /api/products/:id — Update ★
+- PATCH /api/products/:id — Update ★
 - DELETE /api/products/:id — Delete ★
 - POST /api/products/:id/variants — Create variant
-- PUT /api/products/:productId/variants/:id — Update variant
+- PATCH /api/products/:productId/variants/:id — Update variant
 - DELETE /api/products/:productId/variants/:id — Delete variant
 
 **Stock** ★ Wave 2
@@ -854,7 +868,6 @@ export function fetchLowStockItems() {
 - GET /api/transfers — List transfers
 - POST /api/transfers — Create transfer
 - GET /api/transfers/:id — Get single
-- PUT /api/transfers/:id — Update
 - POST /api/transfers/:id/confirm — Confirm transfer
 - POST /api/transfers/:id/cancel — Cancel transfer
 
@@ -862,14 +875,14 @@ export function fetchLowStockItems() {
 - GET /api/suppliers — List
 - POST /api/suppliers — Create
 - GET /api/suppliers/:id — Get single
-- PUT /api/suppliers/:id — Update
+- PATCH /api/suppliers/:id — Update
 - DELETE /api/suppliers/:id — Delete
 
 **Customers**
 - GET /api/customers — List
 - POST /api/customers — Create
 - GET /api/customers/:id — Get single
-- PUT /api/customers/:id — Update
+- PATCH /api/customers/:id — Update
 - DELETE /api/customers/:id — Delete
 - GET /api/customers/:id/notes — List notes
 - POST /api/customers/:id/notes — Add note
@@ -878,7 +891,6 @@ export function fetchLowStockItems() {
 - GET /api/purchase-orders — List
 - POST /api/purchase-orders — Create
 - GET /api/purchase-orders/:id — Get single
-- PUT /api/purchase-orders/:id — Update
 - PATCH /api/purchase-orders/:id/status — Change status
 - POST /api/purchase-orders/:id/receive — Receive items
 
@@ -886,7 +898,6 @@ export function fetchLowStockItems() {
 - GET /api/sales-orders — List
 - POST /api/sales-orders — Create
 - GET /api/sales-orders/:id — Get single
-- PUT /api/sales-orders/:id — Update
 - PATCH /api/sales-orders/:id/status — Change status
 
 **Payments**
@@ -903,7 +914,7 @@ export function fetchLowStockItems() {
 - GET /api/expenses — List expenses
 - POST /api/expenses — Create expense
 - GET /api/expenses/:id — Get single
-- PUT /api/expenses/:id — Update
+- PATCH /api/expenses/:id — Update
 - DELETE /api/expenses/:id — Delete
 - GET /api/expenses/categories — List expense categories
 - POST /api/expenses/categories — Create expense category
@@ -912,7 +923,7 @@ export function fetchLowStockItems() {
 - GET /api/reports/dashboard — Dashboard metrics ★
 - GET /api/reports/sales-by-day — Daily revenue ★
 - GET /api/reports/top-products — Top selling products
-- GET /api/reports/sales-by-source — Sales by channel
+- GET /api/reports/sales-by-channel — Sales by channel (CORRECTED: path is sales-by-channel, NOT sales-by-source)
 - GET /api/reports/expenses-by-category — Expense breakdown
 - GET /api/reports/low-stock — Low stock items ★
 
@@ -928,7 +939,7 @@ export function fetchLowStockItems() {
 | GET | /api/categories | List all categories |
 | POST | /api/categories | Create category |
 | GET | /api/categories/:id | Get single |
-| PUT | /api/categories/:id | Update category |
+| PATCH | /api/categories/:id | Update category |
 | DELETE | /api/categories/:id | Delete category |
 
 GET list response:
@@ -943,7 +954,7 @@ GET list response:
 | GET | /api/units | List all units |
 | POST | /api/units | Create unit |
 | GET | /api/units/:id | Get single |
-| PUT | /api/units/:id | Update unit |
+| PATCH | /api/units/:id | Update unit |
 | DELETE | /api/units/:id | Delete unit |
 
 GET list response:
@@ -958,7 +969,7 @@ GET list response:
 | GET | /api/products | List products (paginated) |
 | POST | /api/products | Create product |
 | GET | /api/products/:id | Get single product |
-| PUT | /api/products/:id | Update product |
+| PATCH | /api/products/:id | Update product |
 | DELETE | /api/products/:id | Delete product |
 
 GET list response:
@@ -973,20 +984,22 @@ GET list response:
 | GET | /api/stock | List stock levels |
 | GET | /api/reports/low-stock | Low stock items only |
 
-GET /api/stock response:
+GET /api/stock response (CORRECTED by full-state audit — verified from stock.controller.js L43-49):
 ```json
-{ "success": true, "data": [{ "product_id": "uuid", "product_name": "...", "sku": "...", "location_id": "uuid", "location_name": "...", "branch_name": "...", "quantity_on_hand": 25, "low_stock_threshold": 10, "is_low_stock": false }], "pagination": { "page": 1, "limit": 20, "total": 100 } }
+{ "success": true, "data": [{ "product_id": "uuid", "variant_id": null, "location_id": "uuid", "product_name": "...", "sku": "...", "low_stock_threshold": 10, "variant_name": null, "location_name": "...", "branch_name": "...", "stock_on_hand": 25 }], "pagination": { "page": 1, "limit": 20, "total": 100, "totalPages": 5 } }
 ```
+There is NO `quantity_on_hand` and NO `is_low_stock` field. StockPage.jsx currently reads both — that is BUG-12. Low-stock must be derived client-side (`stock_on_hand <= low_stock_threshold && low_stock_threshold > 0`) or requested server-side via `?low_stock=true`.
 
 ---
 
 ## SECTION 6 — TRANSLATION FILES
 
-**Current namespaces (after Wave 3 complete): 18 total**
+**Current namespaces (verified full-state audit): 19 total**
 Existing (11): app, auth, nav, header, dashboard, common, categories, units, products, stock, sidebar
-Added in Wave 3: suppliers (23), customers (20), purchaseOrders (54), salesOrders (60), transfers (39), payments (30), returns (28)
-**Total key count:** ~550+ keys across 18 namespaces in each file
-**Parity status:** Confirmed — both EN and AR files have identical structure (verified in Wave 4 pre-build audit)
+Added in Wave 3: suppliers (24), customers (22), purchaseOrders (60), salesOrders (68), transfers (54), payments (37), returns (33)
+Added unrecorded (Prompt A/B era): **import (39)** — for ImportModal
+**Total key count:** exactly **560 leaf keys** in each language file
+**Parity status:** PERFECT — verified by full JSON diff: 0 keys present in one language and missing in the other; all 444 static t() keys + 22 zod message keys resolve; 0 Arabic quality defects. Known dynamic-key gap: backend channel values `in_store`, `snapchat`, `tiktok` have no `salesOrders.channels.*` entry (part of BUG-11).
 **Wave 4 will add 9 more namespaces:** organization, branches, locations, users, expenses, reports, auditLog, profile, changePassword
 **Final count after Wave 4:** 27 namespaces
 
@@ -1571,8 +1584,20 @@ Add to BOTH files under their respective namespaces:
 
 ### 8.1 Issue Summary
 
-**6 open issues — CRITICAL:0 | HIGH:0 | MEDIUM:0 | LOW:6**
-(Wave 3 complete and fully audited — BUG-10 found and fixed. No new issues introduced.)
+**Re-verified by full-state audit: CRITICAL:0 | HIGH:3 | MEDIUM:3 | LOW:12**
+BUG-01 through BUG-10 all spot-checked — **none regressed**. The 6 old LOW issues all still true. New issues found by the audit (full detail in Audit-reports/BCC_Full_Project_State_Audit_2Apr2026.md §8):
+
+| ID | Priority | Issue |
+|----|----------|-------|
+| BUG-11 | **HIGH** | SO channel enum mismatch: frontend offers `walk_in`/`phone` — backend validators reject both (400 on create AND list filter); backend default `in_store` + `snapchat`/`tiktok` missing from translations → raw key renders. SalesOrdersPage.jsx L156-163 vs sales-orders.routes.js L14/L24 |
+| BUG-12 | **HIGH** | StockPage reads `quantity_on_hand` + `is_low_stock` — backend returns `stock_on_hand` and no `is_low_stock` → quantity column blank, low-stock badge never shows. StockPage.jsx L90/95/98/115 (RULE-24 never applied to this page) |
+| N-1 | **HIGH** | Zero frontend role guards (no route/page-level checks anywhere; Sidebar minRole is visibility-only). Readonly sees Reports in sidebar but /reports/* requires staff+ → guaranteed 403 |
+| N-2 | MEDIUM | `authStore.logout()` and the 401 interceptor never clear `bcc_org` — stale org/currency across sessions |
+| N-3 | MEDIUM | Stock-changing mutations (PO receive, transfer confirm, SO status, returns) never invalidate `['stock']`/`['dashboard']` — stale up to 5 min |
+| N-4 | MEDIUM | npm audit: frontend 14 vulns (6 high), backend 11 (4 high); `xlsx` 0.18.5 has unfixed advisories |
+| N-5..N-12 | LOW | Duplicated ROLE_HIERARCHY; dead code (6 unwired api modules, 7 unused api fns, ~18 unused ui components, toast island, ~12 dead constants incl. stale ORDER_CHANNELS/SO_STATUS/TRANSFER_STATUS/NAV_ITEMS); Dashboard raw channel/status + borderLeftColor; dual products-dropdown keys; organizations.js dead while LoginPage calls endpoint raw; PaymentsPage view→list; empty catch auth.controller L156; uncommitted v4.7 work |
+
+Backend (report-only): expenses.location_id + stock.adjust.variant_id not org-validated; customers.addNote unaudited; pool SSL rejectUnauthorized:false; no trust proxy; supplier_payments orphan table; no password-reset flow.
 
 *Resolved in Wave 2 audit: Sidebar aria-label (was #1 → BUG-05), duplicate tailwind config (was #7), empty variants dir (was #9), unused App.css (was #11).*
 *Resolved in Wave 3 testing: Issues #1–3 (untested backend flows) — all Postman-verified 27 Mar 2026.*
@@ -1594,9 +1619,10 @@ Add to BOTH files under their respective namespaces:
 
 ### 8.3 Wave 4 Blockers
 
-**No code-level blockers.** All 6 open issues are LOW priority and deferred. The only
-prerequisite before writing Wave 4 build prompts is completing Postman verification
-of the 19 unverified API shapes listed in Section 13.1.
+**Updated by full-state audit:** BUG-11, BUG-12, and N-1 (role guards) should be fixed
+BEFORE or alongside Wave 4 (see Section 14 revised wave plan — Wave W5). The Postman
+checklist is no longer a blocker: 15 of 19 items were verified directly from backend
+code; only ~4 response-shape spot checks remain (Section 13.1 annotations).
 
 ---
 
@@ -1854,6 +1880,20 @@ const LOCATION_TYPE_OPTIONS = [
 Do NOT modify constants.js. Do NOT use LOCATION_TYPES[n].label directly.
 Why: Labels must re-evaluate on language change — module-level arrays with t() do not.
 
+**RULE-34: [API] Backend uses PATCH for ALL updates — never PUT**
+Detail: Every update route in the backend is registered as router.patch. There are ZERO router.put routes in the entire backend. All frontend api modules must use api.patch for updates:
+```javascript
+export function updateX(id, data) {
+  return api.patch(`/x/${id}`, data);
+}
+```
+Additionally: transfers have NO generic update route (state changes via POST /:id/confirm and POST /:id/cancel only), and purchase orders / sales orders have PATCH /:id/status only — no generic update.
+Why: On 2 Apr 2026, all 5 CRUD edit flows (Customers, Suppliers, Categories, Units, Products) were broken with 404 errors because the frontend sent PUT to PATCH-only routes. The 404 was misdiagnosed several times (malformed IDs, database mismatch, Railway suspension) before the method mismatch was found by reading the backend route files directly. Lesson: when a route 404s, read the backend route file FIRST.
+
+**RULE-35: [Process] Every code-changing session MUST end with a brain update + git commit/push**
+Detail: Every Claude Code session that changes code MUST end with (a) a brain update log entry (Section 12) and (b) `git add` / `git commit` / `git push`. No exceptions, even for "small" fixes.
+Why: Undocumented sessions caused brain drift that cost hours of misdiagnosis on 2 Apr 2026 (PUT/PATCH, ImportModal "planned" but already built, Wave 4 API modules built but unrecorded). The v4.7 PUT→PATCH fix itself sat uncommitted in the working tree for months and was only committed by the full-state audit.
+
 ---
 
 ## SECTION 10 — TEST CREDENTIALS & REFERENCE DATA
@@ -2081,8 +2121,8 @@ Full row shape: `product_id`, `variant_id`, `location_id`,
 
 ### 11.5 Key API Endpoint Reference for Wave 3
 
-**Suppliers:** GET/POST/PUT/DELETE /api/suppliers, GET /api/suppliers/:id
-**Customers:** GET/POST/PUT/DELETE /api/customers, GET /api/customers/:id, POST /api/customers/:id/notes
+**Suppliers:** GET/POST/PATCH/DELETE /api/suppliers, GET /api/suppliers/:id
+**Customers:** GET/POST/PATCH/DELETE /api/customers, GET /api/customers/:id, POST /api/customers/:id/notes
 **Purchase Orders:** GET/POST /api/purchase-orders, GET /api/purchase-orders/:id, PATCH /api/purchase-orders/:id/status, POST /api/purchase-orders/:id/receive
 **Sales Orders:** GET/POST /api/sales-orders, GET /api/sales-orders/:id, PATCH /api/sales-orders/:id/status
 **Transfers:** GET/POST /api/transfers, GET /api/transfers/:id, POST /api/transfers/:id/confirm, POST /api/transfers/:id/cancel
@@ -2139,31 +2179,32 @@ Build at completion: 3,046 modules, 0 errors. All BUG-01 through BUG-10 confirme
 
 ## SECTION 13 — WAVE 4 BUILD PLAN
 
-### 13.1 Postman Verification Checklist — 19 Items
+### 13.1 Postman Verification Checklist — SHRUNK BY FULL-STATE AUDIT (19 → ~4)
 
-Complete ALL items before writing Wave 4 build prompts.
+15 of 19 items were verified directly from backend route/controller code. Only the
+items marked 🔬 still merit a Postman response-shape spot check.
 
-| # | Endpoint | What to confirm |
+| # | Endpoint | Verified answer |
 |---|----------|-----------------|
-| 1 | GET /api/organizations/me | Full field list of the org object |
-| 2 | PATCH /api/organizations/me | Accepted body fields; partial or full replacement? |
-| 3 | GET /api/branches | Paginated or plain array? Exact fields per branch |
-| 4 | POST /api/branches | Required body fields |
-| 5 | GET /api/locations/:id | Exact response shape (type, branch_id, is_active, etc.) |
-| 6 | POST /api/locations | Required body fields (name, type, branch_id?) |
-| 7 | GET /api/users | Paginated? Exact fields per user |
-| 8 | POST /api/users | Required fields (name, email, password, role?) |
-| 9 | PUT /api/users/:id | Accepted fields — does it exclude password? |
-| 10 | GET /api/expenses | Paginated? Fields? Filter params? |
-| 11 | GET /api/expenses/categories | Plain array or paginated? Fields? |
-| 12 | POST /api/expenses | Required + optional fields |
-| 13 | POST /api/expenses/categories | Body fields (just name?) |
-| 14 | GET /api/reports/top-products | Response field names per item |
-| 15 | GET /api/reports/sales-by-source | Response field names per item |
-| 16 | GET /api/reports/expenses-by-category | Response field names per item |
-| 17 | GET /api/audit-log | Paginated? Fields? Filter params? |
-| 18 | PATCH /api/auth/password | Exact body field names |
-| 19 | Profile update | Which endpoint? What body? |
+| 1 | GET /api/organizations/me | 🔬 spot-check full org field list (currency confirmed) |
+| 2 | PATCH /api/organizations/me | ✅ partial update; optional name/country/currency; admin+ |
+| 3 | GET /api/branches | ✅ paginated |
+| 4 | POST /api/branches | ✅ name required, city optional; admin+. DELETE is OWNER-only |
+| 5 | GET /api/locations/:id | ✅ org-scoped via branch join |
+| 6 | POST /api/locations | ✅ branch_id (UUID), name, type ∈ {warehouse, store}; admin+. DELETE OWNER-only |
+| 7 | GET /api/users | ✅ admin+; paginated |
+| 8 | POST /api/users | ✅ name, email, password (8-72), role ∈ {admin, staff, readonly}; admin+ |
+| 9 | PATCH /api/users/:id | ✅ name/role/active only — password excluded. DELETE OWNER-only |
+| 10 | GET /api/expenses | ✅ paginated; filters category_id, location_id, from, to |
+| 11 | GET /api/expenses/categories | ✅ plain list |
+| 12 | POST /api/expenses | ✅ category_id (req), amount>0 (req), date (req); location_id/recurring/note opt; staff+ |
+| 13 | POST /api/expenses/categories | ✅ name only; admin+ |
+| 14 | GET /api/reports/top-products | 🔬 spot-check item field names (staff+; from/to/limit≤50) |
+| 15 | GET /api/reports/sales-by-channel | 🔬 spot-check item field names — PATH CORRECTED (not sales-by-source) |
+| 16 | GET /api/reports/expenses-by-category | 🔬 spot-check item field names |
+| 17 | GET /api/audit-log | ✅ admin+; paginated (limit≤200); filters entity/action/user_id/from/to |
+| 18 | PATCH /api/auth/password | ✅ current_password + new_password (8-72) |
+| 19 | Profile update | ❌ **CONFIRMED GAP: no endpoint exists** (no PATCH /auth/me). ProfilePage can only display GET /auth/me + link to change-password. Self-service name/email edit requires a new backend route |
 
 ### 13.2 API Shapes Confirmed From Codebase
 
@@ -2189,22 +2230,26 @@ Add 4 functions. Do NOT replace the file. fetchLocations() stays untouched.
 ```javascript
 export function fetchLocation(id)        { return api.get(`/locations/${id}`); }
 export function createLocation(data)     { return api.post('/locations', data); }
-export function updateLocation(id, data) { return api.put(`/locations/${id}`, data); }
+export function updateLocation(id, data) { return api.patch(`/locations/${id}`, data); }
 export function deleteLocation(id)       { return api.delete(`/locations/${id}`); }
 ```
 After mutations: `queryClient.invalidateQueries({ queryKey: ['locations'] })`
 
-### 13.5 New API Modules
+### 13.5 API Modules — ALREADY EXIST ON DISK (verified full-state audit)
 
-| File | Named exports |
+All Wave 4 API modules were built in an unrecorded session. They exist, use correct
+PATCH methods, match backend routes 1:1, and are simply NOT imported by any page yet.
+Do NOT recreate them — wire them up. Actual names and exports:
+
+| File (actual) | Named exports (actual) |
 |------|--------------|
-| organization.js | fetchOrganization, updateOrganization |
-| branches.js | fetchBranches, fetchBranch, createBranch, updateBranch, deleteBranch |
-| users.js | fetchUsers, fetchUser, createUser, updateUser, deleteUser |
-| expenses.js | fetchExpenses, fetchExpense, createExpense, updateExpense, deleteExpense, fetchExpenseCategories, createExpenseCategory |
-| reports.js | fetchTopProducts, fetchSalesBySource, fetchExpensesByCategory |
-| auditLog.js | fetchAuditLog |
-| profile.js | fetchProfile, changePassword (+ updateProfile once endpoint confirmed) |
+| organizations.js (NOT organization.js) | organizationsApi { getMyOrg, updateMyOrg } |
+| branches.js | branchesApi { list, getOne, create, update, deactivate } |
+| users.js | usersApi { list, getOne, create, update, deactivate } |
+| expenses.js | expensesApi { listCategories, getCategory, createCategory, updateCategory, deleteCategory, list, getOne, create, update, delete } |
+| reports.js | reportsApi { dashboard, salesByDay, topProducts, salesByChannel, expensesByCategory, lowStock } |
+| auditLog.js | auditLogApi { list } |
+| (no profile.js) | auth.js already has me + changePassword; no profile-update endpoint exists (13.1 #19) |
 
 ### 13.6 Role-Based Access Guards
 
@@ -2232,6 +2277,34 @@ Current: 18. Wave 4 adds: organization, branches, locations, users, expenses, re
 
 ---
 
+## SECTION 14 — VERIFIED PRODUCT GAPS (Full-State Audit)
+
+Authoritative gap list from the read-everything audit (full report:
+`Audit-reports/BCC_Full_Project_State_Audit_2Apr2026.md`).
+
+### 14.1 Verdicts
+- **Invoice PDF: DOES NOT EXIST.** Zero PDF/print/invoice code in either codebase. Flagship MVP promise unbuilt. Recommended: print-optimized invoice view from SO detail + org branding, `window.print()` + print CSS, EN+AR/RTL. Size M.
+- **Registration: backend COMPLETE (public POST /api/auth/register — org + Main Branch + Main Warehouse + owner, one transaction), frontend MISSING.** No signup page; LoginPage says "contact your administrator". A new business cannot onboard without Postman/DB access. Size S/M.
+- **Password reset: DOES NOT EXIST** anywhere (no route, no token table, no mailer).
+- **Multi-tenancy: PASS.** All controller queries org-scoped; SQL fully parameterized; all mutations validated; all stock flows transactional. Two LOW-MED reference-injection gaps (expenses.location_id, stock.adjust.variant_id).
+- **Import coverage: Customers + Suppliers only** (ImportModal, xlsx wizard). Products/Expenses/Stock import (Prompt B) never ran.
+- **Frontend role enforcement: NONE** (N-1) — Sidebar minRole is cosmetic; RULE-29/30 guards were planned for Wave 4 but the 13 built pages have none either.
+- **Endpoints without any frontend caller (13):** locations CRUD (4), product variants (5), customer notes (1), stock summary/ledger/adjust (3).
+
+### 14.2 Revised wave plan to pilot-ready MVP (~12-15 prompts)
+
+| Wave | Content | Prompts |
+|------|---------|---------|
+| W5 — Repair & Guard | BUG-11 channel enums + translations, BUG-12 stock fields, role guards on built pages + hide Reports from readonly, clear bcc_org on logout/401, invalidate ['stock'] after stock-changing mutations | 1-2 |
+| W6 — Onboarding | RegisterPage (signup) wired to existing endpoint, auto-login from 201 response; optionally password-reset (needs backend too) | 1-2 |
+| W7 — Wave 4 build | P1 Organization, P2 Branches+Locations+Users, P3 Expenses, P4 Reports, P5 AuditLog, P6 Profile+ChangePassword — API modules already exist (13.5); checklist ~4 items | 6 |
+| W8 — Invoice | Branded printable invoice from SO detail (EN+AR/RTL) | 2 |
+| W9 — Hardening | npm audit fixes (xlsx!), chunk splitting (lazy ImportModal, recharts manualChunk), dead-code purge, deploy config + frontend hosting, E2E persona-flow test | 2-3 |
+
+Launch-gating: W5 + W6 + W7(P3/P4 minimum) + W8.
+
+---
+
 ## SECTION 12 — UPDATE LOG
 
 | Date | Author | Version | Summary |
@@ -2248,3 +2321,6 @@ Current: 18. Wave 4 adds: organization, branches, locations, users, expenses, re
 | 28 Mar 2026 | Claude Code | v4.4 | Wave 3 Prompts 1–4 comprehensive audit. 1 finding: BUG-10 (TransfersPage StatusBadge mapped "completed" to "active" green instead of "completed" blue — fixed). DataTable, StatusBadge, SearchInput interfaces documented in new Section 4.X. All 6 API modules verified clean. All 5 built pages verified. 16 translation namespaces confirmed with full parity. Bug registry BUG-01 through BUG-09 confirmed clean. Build: 3,044 modules, 0 errors. |
 | 28 Mar 2026 | Claude Code | v4.5 | Wave 3 Prompt 5 complete. PaymentsPage (sales-order-based payment view), ReturnsPage (paginated list + two-step create modal), payments.js, returns.js created. Record Payment + Create Return added to SalesOrdersPage detail view with RULE-26 OVERPAYMENT handling. Translation namespaces: payments + returns added (18 total). WAVE 3 COMPLETE. Build: 3,046 modules, 0 errors. |
 | 28 Mar 2026 | Ashraf + Claude | v4.6 | Wave 4 pre-build audit and brain consolidation. Full interface confirmation: DataTable, StatusBadge, SearchInput, ConfirmModal, PageHeader. useAuth implementations recorded. ROLES, ROLE_HIERARCHY, LOCATION_TYPES confirmed from constants.js. utils.js 7 exports confirmed. 19 UNVERIFIED API shapes listed in Section 13.1. Wave 4 build plan: 9 pages, 6 prompts, 7 API modules. New rules RULE-29–33 added. Section 4.X expanded with role guards, utils exports, report params. Section 13 (Wave 4 Build Plan) created with Postman checklist, prompt split, locations.js extension plan, and session opener. Build: 3,046 modules, 0 errors. |
+| 2 Apr 2026 | Ashraf + Claude | v4.6.1 | Prompt A applied: one-time customer/supplier option (sentinel __one_time__, customer_name/supplier_name optional fields, null IDs for walk-ins) added to SalesOrdersPage and PurchaseOrdersPage. ImportModal confirmed already built and wired into CustomersPage + SuppliersPage. 2 salesOrders + 2 purchaseOrders translation keys added (EN+AR). Malformed-ID audit run across all 8 mutation pages: zero bugs found — all mutations source IDs from row.id or fetched record .id. Build: 3,048 modules. |
+| 2 Apr 2026 | Ashraf + Claude | v4.7 | CRITICAL FIX: All 5 CRUD edit flows were broken — frontend sent PUT but backend only registers PATCH routes (zero router.put routes exist). Fixed api.put → api.patch in customers.js, suppliers.js, categories.js, units.js, products.js. Brain corrected: 10 "PUT /api" lines in Section 5 → PATCH; 3 fictional generic-update lines DELETED (transfers, purchase-orders, sales-orders — these routes never existed; state changes use POST confirm/cancel and PATCH /:id/status); api.put code blocks in RULE-31 and Section 13.4 → api.patch (these would have recreated the bug in Wave 4); Postman checklist item 9 → PATCH. RULE-34 added. Context: Railway subscription lapse had masked this bug behind auth failures. |
+| 15 Jul 2026 | Claude Code | v4.8 | FULL PROJECT STATE AUDIT (verified reality reset). Read entire frontend + backend; produced Audit-reports/BCC_Full_Project_State_Audit_2Apr2026.md. Key corrections: (1) endpoint count 104→94 across 20 modules; (2) reports path is sales-by-channel not sales-by-source; (3) all 6 Wave 4 API modules ALREADY EXIST on disk unwired (organizations.js plural; no profile.js); (4) 19 translation namespaces / 560 keys perfect parity (import namespace was unrecorded); (5) GET /stock row shape corrected (stock_on_hand, no is_low_stock); (6) Postman checklist 19→~4, item 19 confirmed GAP (no profile-update endpoint). New HIGH bugs: BUG-11 (SO channel enum mismatch frontend↔backend), BUG-12 (StockPage reads quantity_on_hand/is_low_stock — blank column), N-1 (zero frontend role guards). Verified clean: multi-tenancy PASS, SQL parameterized, all mutations validated, stock flows transactional, BUG-01..10 unregressed, one-time customer/supplier + ImportModal + OVERPAYMENT all correctly implemented, .env never committed. Invoice PDF: DOES NOT EXIST. Signup UI: MISSING (backend register complete). Password reset: DOES NOT EXIST. Sections 2, 3, 5, 6, 8, 13 corrected; Section 14 (verified product gaps + revised wave plan) added; RULE-35 added. Also committed the previously-uncommitted v4.7 PUT→PATCH fixes. Build verified 3,048 modules, 0 errors before and after (no code touched). |

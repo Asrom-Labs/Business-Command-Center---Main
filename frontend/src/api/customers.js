@@ -18,7 +18,7 @@ export function createCustomer(data) {
 }
 
 export function updateCustomer(id, data) {
-  return api.put(`/customers/${id}`, data);
+  return api.patch(`/customers/${id}`, data);
 }
 
 export function deleteCustomer(id) {

@@ -30,7 +30,7 @@ export function createUnit(data) {
  * @param {{ name?: string, abbreviation?: string }} data
  */
 export function updateUnit(id, data) {
-  return api.put(`/units/${id}`, data);
+  return api.patch(`/units/${id}`, data);
 }
 
 /**

@@ -30,7 +30,7 @@ export function createCategory(data) {
  * @param {{ name?: string, description?: string }} data
  */
 export function updateCategory(id, data) {
-  return api.put(`/categories/${id}`, data);
+  return api.patch(`/categories/${id}`, data);
 }
 
 /**

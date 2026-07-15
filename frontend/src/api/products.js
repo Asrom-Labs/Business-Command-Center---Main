@@ -39,7 +39,7 @@ export function createProduct(data) {
  * @param {object} data — all fields optional
  */
 export function updateProduct(id, data) {
-  return api.put(`/products/${id}`, data);
+  return api.patch(`/products/${id}`, data);
 }
 
 /**
