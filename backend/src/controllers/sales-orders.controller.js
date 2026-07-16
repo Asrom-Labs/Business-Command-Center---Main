@@ -23,7 +23,7 @@ const list = async (req, res, next) => {
 
     vals.push(limit, offset);
     const dataRes = await pool.query(
-      `SELECT so.*, c.name AS customer_name, l.name AS location_name, u.name AS user_name
+      `SELECT so.*, COALESCE(c.name, so.customer_name) AS customer_name, l.name AS location_name, u.name AS user_name
        FROM sales_orders so
        LEFT JOIN customers c ON c.id = so.customer_id
        JOIN locations l ON l.id = so.location_id
@@ -42,10 +42,17 @@ const list = async (req, res, next) => {
 const create = async (req, res, next) => {
   try {
     const {
-      customer_id = null, location_id, channel = 'walk_in',
+      customer_id = null, customer_name = null, location_id, channel = 'walk_in',
       discount = 0, tax = 0, note = null, items,
     } = req.body;
     const orgId = req.user.org_id;
+
+    // One-time/walk-in customers carry their name on the order row itself.
+    // A registered customer already has a name via the join, so customer_name
+    // is ignored when customer_id is present. Whitespace-only never reaches the DB.
+    const oneTimeName = customer_id
+      ? null
+      : (typeof customer_name === 'string' && customer_name.trim() !== '' ? customer_name.trim() : null);
 
     const result = await withTransaction(async (client) => {
       // Validate location
@@ -115,9 +122,9 @@ const create = async (req, res, next) => {
       }
 
       const soRes = await client.query(
-        `INSERT INTO sales_orders (organization_id, customer_id, location_id, user_id, channel, status, subtotal, discount, tax, total, note)
-         VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7, $8, $9, $10) RETURNING *`,
-        [orgId, customer_id, location_id, req.user.id, channel, subtotal, discount, tax, total, note]
+        `INSERT INTO sales_orders (organization_id, customer_id, customer_name, location_id, user_id, channel, status, subtotal, discount, tax, total, note)
+         VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8, $9, $10, $11) RETURNING *`,
+        [orgId, customer_id, oneTimeName, location_id, req.user.id, channel, subtotal, discount, tax, total, note]
       );
       const soId = soRes.rows[0].id;
 
@@ -155,7 +162,7 @@ const getOne = async (req, res, next) => {
     const orgId = req.user.org_id;
 
     const soRes = await pool.query(
-      `SELECT so.*, c.name AS customer_name, l.name AS location_name, u.name AS user_name
+      `SELECT so.*, COALESCE(c.name, so.customer_name) AS customer_name, l.name AS location_name, u.name AS user_name
        FROM sales_orders so
        LEFT JOIN customers c ON c.id = so.customer_id
        JOIN locations l ON l.id = so.location_id

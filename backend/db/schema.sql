@@ -273,6 +273,7 @@ CREATE TABLE IF NOT EXISTS sales_orders (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID          NOT NULL REFERENCES organizations(id) ON DELETE RESTRICT,
   customer_id     UUID                   REFERENCES customers(id)     ON DELETE RESTRICT,
+  customer_name   VARCHAR(255),  -- one-time/walk-in customer display name; NULL for registered customers
   location_id     UUID          NOT NULL REFERENCES locations(id)     ON DELETE RESTRICT,
   user_id         UUID                   REFERENCES users(id)         ON DELETE RESTRICT,
   channel         VARCHAR(30)   NOT NULL DEFAULT 'walk_in' CHECK (channel IN ('walk_in','phone','in_store','whatsapp','instagram','snapchat','tiktok','online','other')),
