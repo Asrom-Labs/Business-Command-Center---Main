@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useForm, useFieldArray } from 'react-hook-form';
@@ -13,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  Dialog, DialogContent, DialogFooter,
+  Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import ConfirmModal from '@/components/shared/ConfirmModal';
@@ -73,6 +74,7 @@ export default function SalesOrdersPage() {
 
   // 4. State
   const [selectedId, setSelectedId] = useState(null);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
@@ -83,6 +85,19 @@ export default function SalesOrdersPage() {
   const [isReturnOpen, setIsReturnOpen] = useState(false);
   const [returnItems, setReturnItems] = useState([]);
   const [isOneTimeCustomer, setIsOneTimeCustomer] = useState(false);
+
+  // Deep link: /sales-orders?order=<id> opens that order's detail.
+  // Runs once on mount; the param is stripped with replace so Back does not reopen it.
+  useEffect(() => {
+    const orderId = searchParams.get('order');
+    if (!orderId) return;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
+    if (isUuid) setSelectedId(orderId);
+    const next = new URLSearchParams(searchParams);
+    next.delete('order');
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 5. Queries
   const salesOrdersQuery = useQuery({
@@ -108,7 +123,7 @@ export default function SalesOrdersPage() {
 
   const customersDropdown = useQuery({
     queryKey: ['customers', 'dropdown'],
-    queryFn: () => fetchCustomers({ limit: 200 }),
+    queryFn: () => fetchCustomers({ limit: 100 }),
     select: (result) => result.data ?? [],
     staleTime: 10 * 60 * 1000,
     enabled: createModalOpen,
@@ -116,14 +131,14 @@ export default function SalesOrdersPage() {
 
   const locationsDropdown = useQuery({
     queryKey: ['locations', 'all'],
-    queryFn: () => fetchLocations({ limit: 200 }),
+    queryFn: () => fetchLocations({ limit: 100 }),
     select: (result) => result.data ?? [],
     staleTime: 10 * 60 * 1000,
   });
 
   const productsDropdown = useQuery({
     queryKey: ['products', 'all'],
-    queryFn: () => fetchProducts({ limit: 200 }),
+    queryFn: () => fetchProducts({ limit: 100 }),
     select: (result) => result.data ?? [],
     staleTime: 10 * 60 * 1000,
   });
@@ -759,6 +774,8 @@ export default function SalesOrdersPage() {
                 onConfirm={() => cancelMutation.mutate(cancelTarget.id)}
                 title={t('salesOrders.cancelOrder')}
                 message={t('salesOrders.cancelConfirm')}
+                confirmLabel={t('salesOrders.cancelOrder')}
+                confirmVariant="destructive"
                 isLoading={cancelMutation.isPending}
               />
             </>
@@ -771,6 +788,7 @@ export default function SalesOrdersPage() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>{t('payments.recordPaymentTitle')}</DialogTitle>
+            <DialogDescription className="sr-only">{t('payments.recordPaymentDescription')}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmitPayment} className="space-y-4">
             <div>
@@ -817,6 +835,7 @@ export default function SalesOrdersPage() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('returns.createReturnTitle')}</DialogTitle>
+            <DialogDescription className="sr-only">{t('returns.createReturnDescription')}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmitReturn} className="space-y-4">
             <div>
@@ -884,6 +903,7 @@ export default function SalesOrdersPage() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('salesOrders.createOrder')}</DialogTitle>
+            <DialogDescription className="sr-only">{t('salesOrders.createDescription')}</DialogDescription>
           </DialogHeader>
 
           <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-5 pt-2">
@@ -912,22 +932,27 @@ export default function SalesOrdersPage() {
                   {t('salesOrders.customer')}
                 </label>
 
+                {/* Controlled: the displayed value is decoupled from customer_id,
+                    which stays '' for one-time orders so no sentinel reaches the API. */}
                 <select
-                  {...createForm.register('customer_id', {
-                    onChange: (e) => {
-                      const val = e.target.value;
-                      if (val === '__one_time__') {
-                        setIsOneTimeCustomer(true);
-                        createForm.setValue('customer_id', '',
-                          { shouldDirty: true, shouldTouch: true });
-                      } else {
-                        setIsOneTimeCustomer(false);
-                        createForm.setValue('customer_id', val,
-                          { shouldDirty: true, shouldTouch: true });
-                        createForm.setValue('customer_name', '');
-                      }
-                    },
-                  })}
+                  value={
+                    isOneTimeCustomer
+                      ? '__one_time__'
+                      : (createForm.watch('customer_id') || '')
+                  }
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '__one_time__') {
+                      setIsOneTimeCustomer(true);
+                      createForm.setValue('customer_id', '',
+                        { shouldDirty: true, shouldTouch: true });
+                    } else {
+                      setIsOneTimeCustomer(false);
+                      createForm.setValue('customer_id', val,
+                        { shouldDirty: true, shouldTouch: true });
+                      createForm.setValue('customer_name', '');
+                    }
+                  }}
                   className="flex h-9 w-full rounded-md border border-input
                              bg-transparent px-3 py-1 text-sm shadow-sm mt-1"
                 >

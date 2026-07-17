@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -273,6 +274,7 @@ export default function CategoriesPage() {
             <DialogTitle>
               {t(editingCategory ? 'categories.editCategory' : 'categories.addCategory')}
             </DialogTitle>
+            <DialogDescription className="sr-only">{t('categories.formDescription')}</DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-2">
@@ -330,6 +332,8 @@ export default function CategoriesPage() {
         onConfirm={() => deleteMutation.mutate()}
         title={t('categories.deleteCategory')}
         message={t('categories.deleteConfirm', { name: deleteTarget?.name ?? '' })}
+        confirmLabel={t('common.delete')}
+        confirmVariant="destructive"
         isLoading={deleteMutation.isPending}
       />
     </div>

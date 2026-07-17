@@ -131,7 +131,7 @@ export default function PaymentsPage() {
       header: '',
       className: 'text-end w-28',
       render: (row) => (
-        <Button variant="ghost" size="sm" onClick={() => navigate('/sales-orders')}>
+        <Button variant="ghost" size="sm" onClick={() => navigate(`/sales-orders?order=${row.id}`)}>
           {t('payments.viewOrder')}
         </Button>
       ),

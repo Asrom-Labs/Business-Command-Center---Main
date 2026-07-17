@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  Dialog, DialogContent, DialogFooter,
+  Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import ConfirmModal from '@/components/shared/ConfirmModal';
@@ -88,7 +88,7 @@ export default function PurchaseOrdersPage() {
 
   const suppliersDropdown = useQuery({
     queryKey: ['suppliers', 'dropdown'],
-    queryFn: () => fetchSuppliers({ limit: 200 }),
+    queryFn: () => fetchSuppliers({ limit: 100 }),
     select: (result) => result.data ?? [],
     staleTime: 10 * 60 * 1000,
     enabled: createModalOpen,
@@ -96,14 +96,14 @@ export default function PurchaseOrdersPage() {
 
   const locationsDropdown = useQuery({
     queryKey: ['locations', 'all'],
-    queryFn: () => fetchLocations({ limit: 200 }),
+    queryFn: () => fetchLocations({ limit: 100 }),
     select: (result) => result.data ?? [],
     staleTime: 10 * 60 * 1000,
   });
 
   const productsDropdown = useQuery({
     queryKey: ['products', 'all'],
-    queryFn: () => fetchProducts({ limit: 200 }),
+    queryFn: () => fetchProducts({ limit: 100 }),
     select: (result) => result.data ?? [],
     staleTime: 10 * 60 * 1000,
   });
@@ -580,6 +580,8 @@ export default function PurchaseOrdersPage() {
                 onConfirm={() => cancelMutation.mutate(cancelTarget.id)}
                 title={t('purchaseOrders.cancelPO')}
                 message={t('purchaseOrders.cancelConfirm')}
+                confirmLabel={t('purchaseOrders.cancelPO')}
+                confirmVariant="destructive"
                 isLoading={cancelMutation.isPending}
               />
 
@@ -597,6 +599,7 @@ export default function PurchaseOrdersPage() {
                 <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>{t('purchaseOrders.receiveModalTitle')}</DialogTitle>
+                    <DialogDescription className="sr-only">{t('purchaseOrders.receiveDescription')}</DialogDescription>
                   </DialogHeader>
 
                   <form onSubmit={receiveForm.handleSubmit(onReceiveSubmit)} className="space-y-4 pt-2">
@@ -671,6 +674,7 @@ export default function PurchaseOrdersPage() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('purchaseOrders.createPO')}</DialogTitle>
+            <DialogDescription className="sr-only">{t('purchaseOrders.createDescription')}</DialogDescription>
           </DialogHeader>
 
           <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-5 pt-2">
@@ -681,21 +685,24 @@ export default function PurchaseOrdersPage() {
               </label>
 
               <select
-                {...createForm.register('supplier_id', {
-                  onChange: (e) => {
-                    const val = e.target.value;
-                    if (val === '__one_time__') {
-                      setIsOneTimeSupplier(true);
-                      createForm.setValue('supplier_id', '',
-                        { shouldDirty: true, shouldTouch: true });
-                    } else {
-                      setIsOneTimeSupplier(false);
-                      createForm.setValue('supplier_id', val,
-                        { shouldDirty: true, shouldTouch: true });
-                      createForm.setValue('supplier_name', '');
-                    }
-                  },
-                })}
+                value={
+                  isOneTimeSupplier
+                    ? '__one_time__'
+                    : (createForm.watch('supplier_id') || '')
+                }
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '__one_time__') {
+                    setIsOneTimeSupplier(true);
+                    createForm.setValue('supplier_id', '',
+                      { shouldDirty: true, shouldTouch: true });
+                  } else {
+                    setIsOneTimeSupplier(false);
+                    createForm.setValue('supplier_id', val,
+                      { shouldDirty: true, shouldTouch: true });
+                    createForm.setValue('supplier_name', '');
+                  }
+                }}
                 className="flex h-9 w-full rounded-md border border-input
                            bg-transparent px-3 py-1 text-sm shadow-sm mt-1"
               >

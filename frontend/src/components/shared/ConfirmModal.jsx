@@ -17,6 +17,9 @@ export default function ConfirmModal({
   title,
   message,
   confirmLabel,
+  // destructive = irreversible deletions and cancellations only.
+  // Positive confirmations (confirm transfer, receive goods) pass "default".
+  confirmVariant = 'destructive',
   isLoading = false,
 }) {
   const { t } = useTranslation();
@@ -39,7 +42,7 @@ export default function ConfirmModal({
           </Button>
           <Button
             type="button"
-            variant="destructive"
+            variant={confirmVariant}
             onClick={onConfirm}
             disabled={isLoading}
           >

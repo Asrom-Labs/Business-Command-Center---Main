@@ -158,9 +158,9 @@ export default function LoginPage() {
               <Zap className="h-5 w-5 text-white" fill="currentColor" />
             </div>
             <div>
-              <div className="text-xl font-bold leading-none tracking-tight">BCC</div>
+              <div className="text-xl font-bold leading-none tracking-tight">{t('app.name')}</div>
               <div className="mt-0.5 text-[11px] font-medium tracking-wide text-white/55">
-                {t('app.name')}
+                {t('app.tagline')}
               </div>
             </div>
           </div>
@@ -201,7 +201,7 @@ export default function LoginPage() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
               <Zap className="h-4 w-4 text-primary-foreground" fill="currentColor" />
             </div>
-            <span className="text-lg font-bold text-foreground">BCC</span>
+            <span className="text-lg font-bold text-foreground">{t('app.name')}</span>
           </div>
 
           {/* Heading */}

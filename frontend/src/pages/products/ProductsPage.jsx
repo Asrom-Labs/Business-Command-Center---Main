@@ -21,6 +21,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -139,7 +140,7 @@ export default function ProductsPage() {
 
   const categoriesQuery = useQuery({
     queryKey: ['categories', 'all'],
-    queryFn: () => fetchCategories({ limit: 200 }),
+    queryFn: () => fetchCategories({ limit: 100 }),
     select: (result) => result.data ?? [],
     staleTime: 10 * 60 * 1000,
   });
@@ -147,7 +148,7 @@ export default function ProductsPage() {
 
   const unitsQuery = useQuery({
     queryKey: ['units', 'all'],
-    queryFn: () => fetchUnits({ limit: 200 }),
+    queryFn: () => fetchUnits({ limit: 100 }),
     select: (result) => result.data ?? [],
     staleTime: 10 * 60 * 1000,
   });
@@ -465,6 +466,7 @@ export default function ProductsPage() {
             <DialogTitle>
               {t(editingProduct ? 'products.editProduct' : 'products.addProduct')}
             </DialogTitle>
+            <DialogDescription className="sr-only">{t('products.formDescription')}</DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-2">
@@ -635,6 +637,8 @@ export default function ProductsPage() {
         onConfirm={() => deleteMutation.mutate()}
         title={t('products.deleteProduct')}
         message={t('products.deleteConfirm', { name: deleteTarget?.name ?? '' })}
+        confirmLabel={t('common.delete')}
+        confirmVariant="destructive"
         isLoading={deleteMutation.isPending}
       />
     </div>

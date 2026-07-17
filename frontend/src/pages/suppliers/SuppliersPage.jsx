@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  Dialog, DialogContent, DialogFooter,
+  Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import ConfirmModal from '@/components/shared/ConfirmModal';
@@ -308,6 +308,7 @@ export default function SuppliersPage() {
             <DialogTitle>
               {t(editingSupplier ? 'suppliers.editSupplier' : 'suppliers.addSupplier')}
             </DialogTitle>
+            <DialogDescription className="sr-only">{t('suppliers.formDescription')}</DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-2">
@@ -371,6 +372,8 @@ export default function SuppliersPage() {
         onConfirm={() => deleteMutation.mutate()}
         title={t('suppliers.deleteSupplier')}
         message={t('suppliers.deleteConfirm', { name: deleteTarget?.name ?? '' })}
+        confirmLabel={t('common.delete')}
+        confirmVariant="destructive"
         isLoading={deleteMutation.isPending}
       />
 

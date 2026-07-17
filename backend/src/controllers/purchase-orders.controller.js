@@ -21,11 +21,16 @@ const list = async (req, res, next) => {
 
     vals.push(limit, offset);
     const dataRes = await pool.query(
-      `SELECT po.*, s.name AS supplier_name, l.name AS location_name, u.name AS created_by_name
+      `SELECT po.*, s.name AS supplier_name, l.name AS location_name, u.name AS created_by_name,
+              COALESCE(poi.total, 0) AS total
        FROM purchase_orders po
        JOIN suppliers s ON s.id = po.supplier_id
        JOIN locations l ON l.id = po.location_id
        LEFT JOIN users u ON u.id = po.created_by
+       LEFT JOIN (
+         SELECT purchase_order_id, SUM(cost * quantity)::NUMERIC AS total
+         FROM purchase_order_items GROUP BY purchase_order_id
+       ) poi ON poi.purchase_order_id = po.id
        ${w}
        ORDER BY po.created_at DESC LIMIT $${idx} OFFSET $${idx + 1}`,
       vals
@@ -107,11 +112,16 @@ const getOne = async (req, res, next) => {
     const orgId = req.user.org_id;
 
     const poRes = await pool.query(
-      `SELECT po.*, s.name AS supplier_name, l.name AS location_name, u.name AS created_by_name
+      `SELECT po.*, s.name AS supplier_name, l.name AS location_name, u.name AS created_by_name,
+              COALESCE(poi.total, 0) AS total
        FROM purchase_orders po
        JOIN suppliers s ON s.id = po.supplier_id
        JOIN locations l ON l.id = po.location_id
        LEFT JOIN users u ON u.id = po.created_by
+       LEFT JOIN (
+         SELECT purchase_order_id, SUM(cost * quantity)::NUMERIC AS total
+         FROM purchase_order_items GROUP BY purchase_order_id
+       ) poi ON poi.purchase_order_id = po.id
        WHERE po.id = $1 AND po.organization_id = $2`,
       [id, orgId]
     );
@@ -122,6 +132,7 @@ const getOne = async (req, res, next) => {
     const itemsRes = await pool.query(
       `SELECT poi.id, poi.purchase_order_id, poi.product_id, poi.variant_id,
               poi.quantity, poi.cost AS unit_cost,
+              (poi.cost * poi.quantity)::NUMERIC AS total,
               p.name AS product_name, pv.name AS variant_name
        FROM purchase_order_items poi
        JOIN products p ON p.id = poi.product_id

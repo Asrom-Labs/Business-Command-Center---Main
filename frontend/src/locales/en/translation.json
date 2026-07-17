@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Business Command Center",
+    "name": "Marsa",
     "tagline": "Unified operations for modern businesses",
     "loading": "Loading…"
   },
@@ -35,7 +35,7 @@
         "reports": "Real-time reports & analytics"
       },
       "welcomeBack": "Welcome back, {{name}}!",
-      "copyright": "© {{year}} Business Command Center"
+      "copyright": "© {{year}} Marsa"
     }
   },
   "nav": {
@@ -134,7 +134,7 @@
       "more": "and {{count}} more items..."
     },
     "error": "Unable to load some dashboard data. Please refresh.",
-    "pageTitle": "Dashboard — BCC"
+    "pageTitle": "Dashboard — Marsa"
   },
   "common": {
     "save": "Save",
@@ -175,9 +175,10 @@
   },
   "categories": {
     "title": "Categories",
-    "pageTitle": "Categories — BCC",
+    "pageTitle": "Categories — Marsa",
     "subtitle": "Manage product categories",
     "addCategory": "Add Category",
+    "formDescription": "Enter the category details and save.",
     "editCategory": "Edit Category",
     "deleteCategory": "Delete Category",
     "deleteConfirm": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone.",
@@ -198,9 +199,10 @@
   },
   "units": {
     "title": "Units",
-    "pageTitle": "Units — BCC",
+    "pageTitle": "Units — Marsa",
     "subtitle": "Manage units of measure",
     "addUnit": "Add Unit",
+    "formDescription": "Enter the unit details and save.",
     "editUnit": "Edit Unit",
     "deleteUnit": "Delete Unit",
     "deleteConfirm": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone.",
@@ -220,9 +222,10 @@
   },
   "products": {
     "title": "Products",
-    "pageTitle": "Products — BCC",
+    "pageTitle": "Products — Marsa",
     "subtitle": "Manage your product catalog",
     "addProduct": "Add Product",
+    "formDescription": "Enter the product details, pricing and stock threshold, then save.",
     "editProduct": "Edit Product",
     "deleteProduct": "Delete Product",
     "deleteConfirm": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone.",
@@ -262,7 +265,7 @@
   },
   "stock": {
     "title": "Stock",
-    "pageTitle": "Stock — BCC",
+    "pageTitle": "Stock — Marsa",
     "subtitle": "View real-time stock levels across all locations",
     "product": "Product",
     "sku": "SKU",
@@ -280,9 +283,10 @@
   },
   "suppliers": {
     "title": "Suppliers",
-    "pageTitle": "Suppliers — BCC",
+    "pageTitle": "Suppliers — Marsa",
     "subtitle": "Manage your supplier contacts",
     "addSupplier": "Add Supplier",
+    "formDescription": "Enter the supplier contact details and save.",
     "editSupplier": "Edit Supplier",
     "deleteSupplier": "Delete Supplier",
     "deleteConfirm": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone.",
@@ -308,9 +312,10 @@
   },
   "customers": {
     "title": "Customers",
-    "pageTitle": "Customers — BCC",
+    "pageTitle": "Customers — Marsa",
     "subtitle": "Manage your customer contacts",
     "addCustomer": "Add Customer",
+    "formDescription": "Enter the customer contact details and save.",
     "editCustomer": "Edit Customer",
     "deleteCustomer": "Delete Customer",
     "deleteConfirm": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone.",
@@ -334,7 +339,7 @@
   },
   "purchaseOrders": {
     "title": "Purchase Orders",
-    "pageTitle": "Purchase Orders — BCC",
+    "pageTitle": "Purchase Orders — Marsa",
     "subtitle": "Manage procurement from your suppliers",
     "newPO": "New Purchase Order",
     "loadError": "Unable to load purchase orders. Please refresh.",
@@ -345,6 +350,7 @@
     "receiveSuccess": "Goods received and stock updated successfully",
     "cancelSuccess": "Purchase order cancelled",
     "createPO": "Create Purchase Order",
+    "createDescription": "Choose a supplier and destination, add items, then create the purchase order.",
     "poDetails": "Purchase Order Details",
     "supplier": "Supplier",
     "location": "Receiving Location",
@@ -371,6 +377,7 @@
     "cancelConfirm": "Are you sure you want to cancel this purchase order? This action cannot be undone.",
     "receiveGoods": "Receive Goods",
     "receiveModalTitle": "Receive Goods",
+    "receiveDescription": "Enter the quantity received for each item on this purchase order.",
     "receiveNote": "Receiving Note (optional)",
     "receivePlaceholder": "e.g. Partial delivery — remaining items on backorder",
     "quantityReceived": "Qty Received",
@@ -402,7 +409,7 @@
   },
   "salesOrders": {
     "title": "Sales Orders",
-    "pageTitle": "Sales Orders — BCC",
+    "pageTitle": "Sales Orders — Marsa",
     "subtitle": "Manage customer sales and fulfillment",
     "newOrder": "New Sales Order",
     "loadError": "Unable to load sales orders. Please refresh.",
@@ -412,6 +419,7 @@
     "statusSuccess": "Status updated successfully",
     "cancelSuccess": "Sales order cancelled",
     "createOrder": "Create Sales Order",
+    "createDescription": "Choose a customer and channel, add items, then create the sales order.",
     "orderDetails": "Sales Order Details",
     "customer": "Customer",
     "location": "Location",
@@ -484,10 +492,11 @@
     }
   },
   "transfers": {
-    "pageTitle": "Transfers — BCC",
+    "pageTitle": "Transfers — Marsa",
     "title": "Stock Transfers",
     "subtitle": "Move inventory between your locations",
     "newTransfer": "New Transfer",
+    "createDescription": "Choose the source and destination locations, add items, then create the transfer.",
     "noTransfers": "No transfers found",
     "transfer": "Transfer",
     "from": "From",
@@ -546,7 +555,7 @@
     }
   },
   "payments": {
-    "pageTitle": "Payments — BCC",
+    "pageTitle": "Payments — Marsa",
     "title": "Payments",
     "subtitle": "Payment status across all sales orders",
     "noOrders": "No orders found",
@@ -574,6 +583,7 @@
     "viewOrder": "View Order",
     "recordPayment": "Record Payment",
     "recordPaymentTitle": "Record Payment",
+    "recordPaymentDescription": "Enter the payment amount and method for this order.",
     "amount": "Amount",
     "method": "Payment Method",
     "note": "Note (optional)",
@@ -593,7 +603,7 @@
     "methodRequired": "Payment method is required"
   },
   "returns": {
-    "pageTitle": "Returns — BCC",
+    "pageTitle": "Returns — Marsa",
     "title": "Returns",
     "subtitle": "All returns and refunds",
     "newReturn": "New Return",
@@ -613,6 +623,7 @@
       "date": "Date"
     },
     "createReturnTitle": "Create Return",
+    "createReturnDescription": "Select the items being returned and the reason for the return.",
     "createReturn": "Process Return",
     "selectOrderLabel": "Sales Order ID",
     "selectOrderPlaceholder": "Enter the sales order UUID",
@@ -631,6 +642,7 @@
   },
   "import": {
     "modalTitle": "Import {{entity}}",
+    "dialogDescription": "Upload a spreadsheet, map its columns to the expected fields, then import.",
     "screenUpload": "Upload File",
     "screenMapping": "Map Columns",
     "screenErrors": "Errors Found",

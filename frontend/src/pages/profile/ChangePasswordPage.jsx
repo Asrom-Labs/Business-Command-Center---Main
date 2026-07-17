@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 export default function ChangePasswordPage() {
-  useEffect(() => { document.title = 'Change Password — BCC'; }, []);
+  useEffect(() => { document.title = 'Change Password — Marsa'; }, []);
 
   return (
     <div className="page-container">

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 export default function OrganizationPage() {
-  useEffect(() => { document.title = 'Organization — BCC'; }, []);
+  useEffect(() => { document.title = 'Organization — Marsa'; }, []);
 
   return (
     <div className="page-container">

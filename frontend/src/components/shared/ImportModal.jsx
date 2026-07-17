@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 
 export default function ImportModal({
@@ -211,6 +211,7 @@ export default function ImportModal({
             {t('import.modalTitle', { entity: entityName })}
             {screenTitle ? ` — ${screenTitle}` : ''}
           </DialogTitle>
+          <DialogDescription className="sr-only">{t('import.dialogDescription')}</DialogDescription>
         </DialogHeader>
 
         {screen === 'upload' && (

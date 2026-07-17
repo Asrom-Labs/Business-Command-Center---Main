@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 export default function ProfilePage() {
-  useEffect(() => { document.title = 'My Profile — BCC'; }, []);
+  useEffect(() => { document.title = 'My Profile — Marsa'; }, []);
 
   return (
     <div className="page-container">

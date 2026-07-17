@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -266,6 +267,7 @@ export default function UnitsPage() {
             <DialogTitle>
               {t(editingUnit ? 'units.editUnit' : 'units.addUnit')}
             </DialogTitle>
+            <DialogDescription className="sr-only">{t('units.formDescription')}</DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-2">
@@ -327,6 +329,8 @@ export default function UnitsPage() {
         onConfirm={() => deleteMutation.mutate()}
         title={t('units.deleteUnit')}
         message={t('units.deleteConfirm', { name: deleteTarget?.name ?? '' })}
+        confirmLabel={t('common.delete')}
+        confirmVariant="destructive"
         isLoading={deleteMutation.isPending}
       />
     </div>

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 export default function BranchesPage() {
-  useEffect(() => { document.title = 'Branches — BCC'; }, []);
+  useEffect(() => { document.title = 'Branches — Marsa'; }, []);
 
   return (
     <div className="page-container">

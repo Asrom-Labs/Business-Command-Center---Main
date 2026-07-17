@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 export default function UsersPage() {
-  useEffect(() => { document.title = 'Users — BCC'; }, []);
+  useEffect(() => { document.title = 'Users — Marsa'; }, []);
 
   return (
     <div className="page-container">

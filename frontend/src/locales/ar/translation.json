@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "مركز قيادة الأعمال",
+    "name": "مرسى",
     "tagline": "عمليات موحدة للشركات الحديثة",
     "loading": "جارٍ التحميل…"
   },
@@ -35,7 +35,7 @@
         "reports": "التقارير والتحليلات الفورية"
       },
       "welcomeBack": "مرحباً بعودتك، {{name}}!",
-      "copyright": "© {{year}} مركز قيادة الأعمال"
+      "copyright": "© {{year}} مرسى"
     }
   },
   "nav": {
@@ -134,7 +134,7 @@
       "more": "و {{count}} أصناف أخرى..."
     },
     "error": "تعذّر تحميل بعض بيانات لوحة التحكم. يرجى التحديث.",
-    "pageTitle": "لوحة التحكم — BCC"
+    "pageTitle": "لوحة التحكم — مرسى"
   },
   "common": {
     "save": "حفظ",
@@ -175,9 +175,10 @@
   },
   "categories": {
     "title": "الفئات",
-    "pageTitle": "الفئات — BCC",
+    "pageTitle": "الفئات — مرسى",
     "subtitle": "إدارة فئات المنتجات",
     "addCategory": "إضافة فئة",
+    "formDescription": "أدخل تفاصيل الفئة واحفظ.",
     "editCategory": "تعديل الفئة",
     "deleteCategory": "حذف الفئة",
     "deleteConfirm": "هل أنت متأكد من حذف \"{{name}}\"؟ لا يمكن التراجع عن هذا الإجراء.",
@@ -198,9 +199,10 @@
   },
   "units": {
     "title": "الوحدات",
-    "pageTitle": "الوحدات — BCC",
+    "pageTitle": "الوحدات — مرسى",
     "subtitle": "إدارة وحدات القياس",
     "addUnit": "إضافة وحدة",
+    "formDescription": "أدخل تفاصيل الوحدة واحفظ.",
     "editUnit": "تعديل الوحدة",
     "deleteUnit": "حذف الوحدة",
     "deleteConfirm": "هل أنت متأكد من حذف \"{{name}}\"؟ لا يمكن التراجع عن هذا الإجراء.",
@@ -220,9 +222,10 @@
   },
   "products": {
     "title": "المنتجات",
-    "pageTitle": "المنتجات — BCC",
+    "pageTitle": "المنتجات — مرسى",
     "subtitle": "إدارة كتالوج المنتجات",
     "addProduct": "إضافة منتج",
+    "formDescription": "أدخل تفاصيل المنتج والأسعار وحد المخزون، ثم احفظ.",
     "editProduct": "تعديل المنتج",
     "deleteProduct": "حذف المنتج",
     "deleteConfirm": "هل أنت متأكد من حذف \"{{name}}\"؟ لا يمكن التراجع عن هذا الإجراء.",
@@ -262,7 +265,7 @@
   },
   "stock": {
     "title": "المخزون",
-    "pageTitle": "المخزون — BCC",
+    "pageTitle": "المخزون — مرسى",
     "subtitle": "عرض مستويات المخزون الفورية في جميع المواقع",
     "product": "المنتج",
     "sku": "رمز المنتج",
@@ -280,9 +283,10 @@
   },
   "suppliers": {
     "title": "الموردون",
-    "pageTitle": "الموردون — BCC",
+    "pageTitle": "الموردون — مرسى",
     "subtitle": "إدارة جهات اتصال الموردين",
     "addSupplier": "إضافة مورد",
+    "formDescription": "أدخل بيانات الاتصال بالمورد واحفظ.",
     "editSupplier": "تعديل المورد",
     "deleteSupplier": "حذف المورد",
     "deleteConfirm": "هل أنت متأكد من حذف \"{{name}}\"؟ لا يمكن التراجع عن هذا الإجراء.",
@@ -308,9 +312,10 @@
   },
   "customers": {
     "title": "العملاء",
-    "pageTitle": "العملاء — BCC",
+    "pageTitle": "العملاء — مرسى",
     "subtitle": "إدارة جهات اتصال العملاء",
     "addCustomer": "إضافة عميل",
+    "formDescription": "أدخل بيانات الاتصال بالعميل واحفظ.",
     "editCustomer": "تعديل العميل",
     "deleteCustomer": "حذف العميل",
     "deleteConfirm": "هل أنت متأكد من حذف \"{{name}}\"؟ لا يمكن التراجع عن هذا الإجراء.",
@@ -334,7 +339,7 @@
   },
   "purchaseOrders": {
     "title": "أوامر الشراء",
-    "pageTitle": "أوامر الشراء — BCC",
+    "pageTitle": "أوامر الشراء — مرسى",
     "subtitle": "إدارة المشتريات من الموردين",
     "newPO": "أمر شراء جديد",
     "loadError": "تعذّر تحميل أوامر الشراء. يرجى التحديث.",
@@ -345,6 +350,7 @@
     "receiveSuccess": "تم استلام البضائع وتحديث المخزون بنجاح",
     "cancelSuccess": "تم إلغاء أمر الشراء",
     "createPO": "إنشاء أمر شراء",
+    "createDescription": "اختر المورد والوجهة، أضف الأصناف، ثم أنشئ أمر الشراء.",
     "poDetails": "تفاصيل أمر الشراء",
     "supplier": "المورد",
     "location": "موقع الاستلام",
@@ -371,6 +377,7 @@
     "cancelConfirm": "هل أنت متأكد من إلغاء أمر الشراء؟ لا يمكن التراجع عن هذا الإجراء.",
     "receiveGoods": "استلام البضائع",
     "receiveModalTitle": "استلام البضائع",
+    "receiveDescription": "أدخل الكمية المستلمة لكل صنف في أمر الشراء هذا.",
     "receiveNote": "ملاحظة الاستلام (اختيارية)",
     "receivePlaceholder": "مثل: تسليم جزئي — الباقي قيد الطلب",
     "quantityReceived": "الكمية المستلمة",
@@ -402,7 +409,7 @@
   },
   "salesOrders": {
     "title": "أوامر البيع",
-    "pageTitle": "أوامر البيع — BCC",
+    "pageTitle": "أوامر البيع — مرسى",
     "subtitle": "إدارة مبيعات العملاء وعمليات التوصيل",
     "newOrder": "أمر بيع جديد",
     "loadError": "تعذّر تحميل أوامر البيع. يرجى التحديث.",
@@ -412,6 +419,7 @@
     "statusSuccess": "تم تحديث الحالة بنجاح",
     "cancelSuccess": "تم إلغاء أمر البيع",
     "createOrder": "إنشاء أمر بيع",
+    "createDescription": "اختر العميل والقناة، أضف الأصناف، ثم أنشئ أمر البيع.",
     "orderDetails": "تفاصيل أمر البيع",
     "customer": "العميل",
     "location": "الموقع",
@@ -484,10 +492,11 @@
     }
   },
   "transfers": {
-    "pageTitle": "التحويلات — BCC",
+    "pageTitle": "التحويلات — مرسى",
     "title": "تحويلات المخزون",
     "subtitle": "نقل المخزون بين مواقعك",
     "newTransfer": "تحويل جديد",
+    "createDescription": "اختر موقع المصدر والوجهة، أضف الأصناف، ثم أنشئ التحويل.",
     "noTransfers": "لا توجد تحويلات",
     "transfer": "تحويل",
     "from": "من",
@@ -546,7 +555,7 @@
     }
   },
   "payments": {
-    "pageTitle": "المدفوعات — BCC",
+    "pageTitle": "المدفوعات — مرسى",
     "title": "المدفوعات",
     "subtitle": "حالة الدفع لجميع أوامر المبيعات",
     "noOrders": "لا توجد طلبات",
@@ -574,6 +583,7 @@
     "viewOrder": "عرض الطلب",
     "recordPayment": "تسجيل دفعة",
     "recordPaymentTitle": "تسجيل دفعة",
+    "recordPaymentDescription": "أدخل مبلغ الدفعة وطريقة الدفع لهذا الطلب.",
     "amount": "المبلغ",
     "method": "طريقة الدفع",
     "note": "ملاحظة (اختياري)",
@@ -593,7 +603,7 @@
     "methodRequired": "طريقة الدفع مطلوبة"
   },
   "returns": {
-    "pageTitle": "المرتجعات — BCC",
+    "pageTitle": "المرتجعات — مرسى",
     "title": "المرتجعات",
     "subtitle": "جميع المرتجعات والمبالغ المستردة",
     "newReturn": "مرتجع جديد",
@@ -613,6 +623,7 @@
       "date": "التاريخ"
     },
     "createReturnTitle": "إنشاء مرتجع",
+    "createReturnDescription": "اختر الأصناف المرتجعة وسبب الإرجاع.",
     "createReturn": "معالجة المرتجع",
     "selectOrderLabel": "رقم أمر المبيعات",
     "selectOrderPlaceholder": "أدخل معرّف أمر المبيعات",
@@ -631,6 +642,7 @@
   },
   "import": {
     "modalTitle": "استيراد {{entity}}",
+    "dialogDescription": "ارفع ملف جدول بيانات، اربط أعمدته بالحقول المطلوبة، ثم استورد.",
     "screenUpload": "رفع الملف",
     "screenMapping": "ربط الأعمدة",
     "screenErrors": "أخطاء في البيانات",

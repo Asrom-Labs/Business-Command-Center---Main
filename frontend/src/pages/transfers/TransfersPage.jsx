@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import DataTable from '@/components/shared/DataTable';
 import PageHeader from '@/components/shared/PageHeader';
@@ -163,7 +163,7 @@ export default function TransfersPage() {
 
   const productsQuery = useQuery({
     queryKey: ['products', 'dropdown'],
-    queryFn: () => fetchProducts({ limit: 200 }),
+    queryFn: () => fetchProducts({ limit: 100 }),
     select: (result) => result.data ?? [],
     staleTime: 10 * 60 * 1000,
   });
@@ -464,6 +464,7 @@ export default function TransfersPage() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('transfers.newTransfer')}</DialogTitle>
+            <DialogDescription className="sr-only">{t('transfers.createDescription')}</DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubmitCreate} className="space-y-4 pt-2">
@@ -577,6 +578,8 @@ export default function TransfersPage() {
         onConfirm={() => confirmMutation.mutate(confirmTarget)}
         title={t('transfers.confirmTransferAction')}
         message={t('transfers.confirmTransferMessage')}
+        confirmLabel={t('transfers.confirmTransferAction')}
+        confirmVariant="default"
         isLoading={confirmMutation.isPending}
       />
 
@@ -586,6 +589,8 @@ export default function TransfersPage() {
         onConfirm={() => cancelMutation.mutate(cancelTarget)}
         title={t('transfers.cancelTransferAction')}
         message={t('transfers.cancelTransferMessage')}
+        confirmLabel={t('transfers.cancelTransferAction')}
+        confirmVariant="destructive"
         isLoading={cancelMutation.isPending}
       />
     </>

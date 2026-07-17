@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 export default function AuditLogPage() {
-  useEffect(() => { document.title = 'Audit Log — BCC'; }, []);
+  useEffect(() => { document.title = 'Audit Log — Marsa'; }, []);
 
   return (
     <div className="page-container">

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 export default function ReportsPage() {
-  useEffect(() => { document.title = 'Reports — BCC'; }, []);
+  useEffect(() => { document.title = 'Reports — Marsa'; }, []);
 
   return (
     <div className="page-container">

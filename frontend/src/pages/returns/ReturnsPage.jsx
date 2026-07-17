@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import DataTable from '@/components/shared/DataTable';
 import PageHeader from '@/components/shared/PageHeader';
@@ -218,6 +218,7 @@ export default function ReturnsPage() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('returns.createReturnTitle')}</DialogTitle>
+            <DialogDescription className="sr-only">{t('returns.createReturnDescription')}</DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubmitReturn} className="space-y-4">

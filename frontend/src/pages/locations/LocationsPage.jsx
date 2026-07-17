@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 export default function LocationsPage() {
-  useEffect(() => { document.title = 'Locations — BCC'; }, []);
+  useEffect(() => { document.title = 'Locations — Marsa'; }, []);
 
   return (
     <div className="page-container">
