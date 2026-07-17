@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -21,7 +21,10 @@ import ConfirmModal from '@/components/shared/ConfirmModal';
 import DataTable from '@/components/shared/DataTable';
 import PageHeader from '@/components/shared/PageHeader';
 import SearchInput from '@/components/shared/SearchInput';
+import SearchableCombobox from '@/components/shared/SearchableCombobox';
 import StatusBadge from '@/components/shared/StatusBadge';
+import { getAllowedSalesOrderActions } from '@/lib/salesOrderActions';
+import { getAllowedTaxRates, getDefaultTaxRate } from '@/lib/constants';
 import {
   createSalesOrder,
   fetchSalesOrder,
@@ -42,9 +45,10 @@ const soHeaderSchema = z.object({
   location_id: z.string().min(1, 'salesOrders.errors.locationRequired'),
   customer_id: z.string().optional().or(z.literal('')),
   customer_name: z.string().optional(),
+  customer_label: z.string().optional(),   // display-only label for the picked customer
   channel: z.string().optional().or(z.literal('')),
-  discount: z.string().optional().or(z.literal('')),
-  tax: z.string().optional().or(z.literal('')),
+  channel_detail: z.string().optional().or(z.literal('')),
+  tax_rate: z.string().optional().or(z.literal('')),
   note: z.string().optional().or(z.literal('')),
 });
 
@@ -63,6 +67,11 @@ const salesOrderReturnSchema = z.object({
   note: z.string().optional(),
 });
 
+// Half-up rounding to 2dp — mirrors backend roundMoney (sales-orders.controller.js).
+// The totals panel below is the frontend mirror of the backend's canonical formula.
+const roundMoney = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+const ONE_TIME = '__one_time__';
+
 // ── Component ───────────────────────────────────────────────────────────────
 export default function SalesOrdersPage() {
   // 1. Hooks
@@ -71,6 +80,8 @@ export default function SalesOrdersPage() {
   const queryClient = useQueryClient();
   const { currency: rawCurrency } = useOrg();
   const currency = rawCurrency || 'JOD';
+  const allowedTaxRates = getAllowedTaxRates(currency);
+  const defaultTaxRate = getDefaultTaxRate(currency);
 
   // 4. State
   const [selectedId, setSelectedId] = useState(null);
@@ -121,14 +132,8 @@ export default function SalesOrdersPage() {
     enabled: !!selectedId,
   });
 
-  const customersDropdown = useQuery({
-    queryKey: ['customers', 'dropdown'],
-    queryFn: () => fetchCustomers({ limit: 100 }),
-    select: (result) => result.data ?? [],
-    staleTime: 10 * 60 * 1000,
-    enabled: createModalOpen,
-  });
-
+  // Customers + products are now server-searched on demand via SearchableCombobox
+  // (W5.5-P2). Locations stay a small preloaded native select.
   const locationsDropdown = useQuery({
     queryKey: ['locations', 'all'],
     queryFn: () => fetchLocations({ limit: 100 }),
@@ -136,20 +141,20 @@ export default function SalesOrdersPage() {
     staleTime: 10 * 60 * 1000,
   });
 
-  const productsDropdown = useQuery({
-    queryKey: ['products', 'all'],
-    queryFn: () => fetchProducts({ limit: 100 }),
-    select: (result) => result.data ?? [],
-    staleTime: 10 * 60 * 1000,
-  });
+  const fetchCustomerOptions = useCallback(
+    (term) => fetchCustomers({ search: term, limit: 20 }).then((r) => r.data ?? []),
+    []
+  );
+  const fetchProductOptions = useCallback(
+    (term) => fetchProducts({ search: term, limit: 20 }).then((r) => r.data ?? []),
+    []
+  );
 
   // 6. Derived values
   const soList = salesOrdersQuery.data?.items ?? [];
   const pagination = salesOrdersQuery.data?.pagination ?? null;
   const selectedSO = salesOrderQuery.data ?? null;
-  const customersList = customersDropdown.data ?? [];
   const locationsList = locationsDropdown.data ?? [];
-  const productsList = productsDropdown.data ?? [];
 
   // 7. Client-side search
   const filteredSOList = search.trim()
@@ -218,12 +223,20 @@ export default function SalesOrdersPage() {
       location_id: '',
       customer_id: '',
       customer_name: '',
+      customer_label: '',
       channel: '',
-      discount: '0',
-      tax: '0',
+      channel_detail: '',
+      tax_rate: String(defaultTaxRate),
       note: '',
-      items: [{ product_id: '', quantity: 1, price: '' }],
+      items: [{ product_id: '', product_name: '', quantity: 1, price: '', discount: '0' }],
     },
+  });
+
+  // Single source for resetting the create form (keeps all reset paths identical).
+  const blankCreateForm = () => ({
+    location_id: '', customer_id: '', customer_name: '', customer_label: '',
+    channel: '', channel_detail: '', tax_rate: String(defaultTaxRate), note: '',
+    items: [{ product_id: '', product_name: '', quantity: 1, price: '', discount: '0' }],
   });
 
   // 15. Field array
@@ -242,11 +255,7 @@ export default function SalesOrdersPage() {
       toast.success(t('salesOrders.addSuccess'));
       setCreateModalOpen(false);
       setIsOneTimeCustomer(false);
-      createForm.reset({
-        location_id: '', customer_id: '', customer_name: '', channel: '',
-        discount: '0', tax: '0', note: '',
-        items: [{ product_id: '', quantity: 1, price: '' }],
-      });
+      createForm.reset(blankCreateForm());
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   });
@@ -379,11 +388,7 @@ export default function SalesOrdersPage() {
 
   // 17. Open create modal
   const openCreateModal = () => {
-    createForm.reset({
-      location_id: '', customer_id: '', customer_name: '', channel: '',
-      discount: '0', tax: '0', note: '',
-      items: [{ product_id: '', quantity: 1, price: '' }],
-    });
+    createForm.reset(blankCreateForm());
     setIsOneTimeCustomer(false);
     setCreateModalOpen(true);
   };
@@ -410,6 +415,13 @@ export default function SalesOrdersPage() {
         toast.error(t('salesOrders.errors.priceRequired'));
         return;
       }
+      // Per-line discount cap (mirrors backend guard: 0 <= discount <= qty * price).
+      const lineGross = parseInt(item.quantity, 10) * parseFloat(item.price || '0');
+      const lineDisc = parseFloat(item.discount || '0');
+      if (lineDisc < 0 || lineDisc > lineGross) {
+        toast.error(t('salesOrders.errors.discountTooHigh'));
+        return;
+      }
     }
 
     const customerId = createForm.getValues('customer_id');
@@ -422,13 +434,16 @@ export default function SalesOrdersPage() {
         ? { customer_name: customerName.trim() }
         : {}),
       channel: headerData.channel || undefined,
-      discount: parseFloat(headerData.discount || '0'),
-      tax: parseFloat(headerData.tax || '0'),
+      ...(headerData.channel === 'other' && headerData.channel_detail?.trim()
+        ? { channel_detail: headerData.channel_detail.trim() }
+        : {}),
+      tax_rate: parseFloat(headerData.tax_rate || String(defaultTaxRate)),
       note: headerData.note || undefined,
       items: items.map((item) => ({
         product_id: item.product_id,
         quantity: parseInt(item.quantity, 10),
         price: parseFloat(item.price),
+        discount: parseFloat(item.discount || '0'),
       })),
     };
 
@@ -625,7 +640,10 @@ export default function SalesOrdersPage() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground uppercase tracking-wide">{t('salesOrders.channel')}</p>
-                    <p className="text-sm font-medium mt-1">{getChannelLabel(selectedSO.channel)}</p>
+                    <p className="text-sm font-medium mt-1">
+                      {getChannelLabel(selectedSO.channel)}
+                      {selectedSO.channel === 'other' && selectedSO.channel_detail ? ` — ${selectedSO.channel_detail}` : ''}
+                    </p>
                   </div>
                 </div>
 
@@ -677,6 +695,7 @@ export default function SalesOrdersPage() {
                         <th className="pb-2 text-start font-medium">{t('salesOrders.product')}</th>
                         <th className="pb-2 text-end font-medium">{t('salesOrders.quantity')}</th>
                         <th className="pb-2 text-end font-medium">{t('salesOrders.unitPrice')}</th>
+                        <th className="pb-2 text-end font-medium">{t('salesOrders.lineDiscount')}</th>
                         <th className="pb-2 text-end font-medium">{t('salesOrders.lineTotal')}</th>
                       </tr>
                     </thead>
@@ -686,6 +705,9 @@ export default function SalesOrdersPage() {
                           <td className="py-3 font-medium">{item.product_name}</td>
                           <td className="py-3 text-end tabular-nums">{item.quantity}</td>
                           <td className="py-3 text-end tabular-nums">{formatCurrency(parseFloat(item.price), currency)}</td>
+                          <td className="py-3 text-end tabular-nums text-muted-foreground">
+                            {parseFloat(item.discount) > 0 ? `-${formatCurrency(parseFloat(item.discount), currency)}` : '—'}
+                          </td>
                           <td className="py-3 text-end tabular-nums font-medium">
                             {formatCurrency(parseFloat(item.price) * item.quantity - parseFloat(item.discount), currency)}
                           </td>
@@ -693,16 +715,27 @@ export default function SalesOrdersPage() {
                       ))}
                     </tbody>
                     <tfoot>
+                      <tr className="border-t">
+                        <td colSpan={4} className="pt-3 text-end text-muted-foreground pe-4">{t('salesOrders.subtotal')}</td>
+                        <td className="pt-3 text-end tabular-nums">{formatCurrency(parseFloat(selectedSO.subtotal), currency)}</td>
+                      </tr>
                       {parseFloat(selectedSO.discount) > 0 && (
-                        <tr className="border-t">
-                          <td colSpan={3} className="pt-2 text-end text-muted-foreground pe-4">{t('salesOrders.discount')}</td>
-                          <td className="pt-2 text-end tabular-nums text-muted-foreground">
+                        <tr>
+                          <td colSpan={4} className="pt-1 text-end text-muted-foreground pe-4">{t('salesOrders.discount')}</td>
+                          <td className="pt-1 text-end tabular-nums text-muted-foreground">
                             -{formatCurrency(parseFloat(selectedSO.discount), currency)}
                           </td>
                         </tr>
                       )}
+                      <tr>
+                        <td colSpan={4} className="pt-1 text-end text-muted-foreground pe-4">
+                          {t('salesOrders.taxAmount')}
+                          {selectedSO.tax_rate != null ? ` (${parseFloat(selectedSO.tax_rate)}%)` : ''}
+                        </td>
+                        <td className="pt-1 text-end tabular-nums">{formatCurrency(parseFloat(selectedSO.tax), currency)}</td>
+                      </tr>
                       <tr className="border-t">
-                        <td colSpan={3} className="pt-3 text-end font-semibold pe-4">{t('salesOrders.total')}</td>
+                        <td colSpan={4} className="pt-3 text-end font-semibold pe-4">{t('salesOrders.total')}</td>
                         <td className="pt-3 text-end font-semibold tabular-nums">{formatCurrency(parseFloat(selectedSO.total), currency)}</td>
                       </tr>
                     </tfoot>
@@ -710,62 +743,55 @@ export default function SalesOrdersPage() {
                 </div>
               </div>
 
-              {/* Status action buttons */}
-              {isStaff && selectedSO.status !== 'delivered' && selectedSO.status !== 'cancelled' && (
-                <div className="flex flex-wrap gap-3">
-                  {selectedSO.status === 'pending' && (
-                    <Button
-                      onClick={() => statusMutation.mutate({ id: selectedSO.id, status: 'processing' })}
-                      disabled={statusMutation.isPending}
-                    >
-                      {statusMutation.isPending && <Loader2 className="h-4 w-4 me-2 animate-spin" />}
-                      {t('salesOrders.actions.process')}
-                    </Button>
-                  )}
-                  {selectedSO.status === 'processing' && (
-                    <Button
-                      onClick={() => statusMutation.mutate({ id: selectedSO.id, status: 'shipped' })}
-                      disabled={statusMutation.isPending}
-                    >
-                      {statusMutation.isPending && <Loader2 className="h-4 w-4 me-2 animate-spin" />}
-                      {t('salesOrders.actions.ship')}
-                    </Button>
-                  )}
-                  {selectedSO.status === 'shipped' && (
-                    <Button
-                      onClick={() => statusMutation.mutate({ id: selectedSO.id, status: 'delivered' })}
-                      disabled={statusMutation.isPending}
-                    >
-                      {statusMutation.isPending && <Loader2 className="h-4 w-4 me-2 animate-spin" />}
-                      {t('salesOrders.actions.deliver')}
-                    </Button>
-                  )}
-                  <Button
-                    variant="outline"
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
-                    onClick={() => setCancelTarget(selectedSO)}
-                    disabled={cancelMutation.isPending}
-                  >
-                    {t('salesOrders.actions.cancel')}
-                  </Button>
-                </div>
-              )}
-
-              {/* Record Payment + Create Return buttons */}
-              {isStaff && (
-              <div className="flex flex-wrap gap-3">
-                {parseFloat(selectedSO?.total || '0') - parseFloat(selectedSO?.amount_paid || '0') > 0 && (
-                  <Button onClick={openPaymentModal} disabled={paymentMutation.isPending || returnMutation.isPending}>
-                    {t('payments.recordPayment')}
-                  </Button>
-                )}
-                {selectedSO?.status === 'delivered' && (
-                  <Button variant="outline" onClick={openReturnModal} disabled={paymentMutation.isPending || returnMutation.isPending}>
-                    {t('returns.createReturnTitle')}
-                  </Button>
-                )}
-              </div>
-              )}
+              {/* Action rows — driven by the status→action matrix (mirrors backend guards,
+                  src/lib/salesOrderActions.js). Primary/affirmative action is LAST in each
+                  row (button-order convention); destructive Cancel keeps its styling left. */}
+              {isStaff && (() => {
+                const actions = getAllowedSalesOrderActions(selectedSO);
+                const transitionLabelKey = { processing: 'process', shipped: 'ship', delivered: 'deliver' };
+                return (
+                  <>
+                    {(actions.canCancel || actions.canTransitionTo.length > 0) && (
+                      <div className="flex flex-wrap gap-3">
+                        {actions.canCancel && (
+                          <Button
+                            variant="outline"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+                            onClick={() => setCancelTarget(selectedSO)}
+                            disabled={cancelMutation.isPending}
+                          >
+                            {t('salesOrders.actions.cancel')}
+                          </Button>
+                        )}
+                        {actions.canTransitionTo.map((target) => (
+                          <Button
+                            key={target}
+                            onClick={() => statusMutation.mutate({ id: selectedSO.id, status: target })}
+                            disabled={statusMutation.isPending}
+                          >
+                            {statusMutation.isPending && <Loader2 className="h-4 w-4 me-2 animate-spin" />}
+                            {t(`salesOrders.actions.${transitionLabelKey[target] || target}`)}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+                    {(actions.canCreateReturn || actions.canRecordPayment) && (
+                      <div className="flex flex-wrap gap-3">
+                        {actions.canCreateReturn && (
+                          <Button variant="outline" onClick={openReturnModal} disabled={paymentMutation.isPending || returnMutation.isPending}>
+                            {t('returns.createReturnTitle')}
+                          </Button>
+                        )}
+                        {actions.canRecordPayment && (
+                          <Button onClick={openPaymentModal} disabled={paymentMutation.isPending || returnMutation.isPending}>
+                            {t('payments.recordPayment')}
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
 
               {/* Cancel confirmation modal */}
               <ConfirmModal
@@ -892,175 +918,250 @@ export default function SalesOrdersPage() {
           if (!open) {
             setCreateModalOpen(false);
             setIsOneTimeCustomer(false);
-            createForm.reset({
-              location_id: '', customer_id: '', customer_name: '', channel: '',
-              discount: '0', tax: '0', note: '',
-              items: [{ product_id: '', quantity: 1, price: '' }],
-            });
+            createForm.reset(blankCreateForm());
           }
         }}
       >
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('salesOrders.createOrder')}</DialogTitle>
             <DialogDescription className="sr-only">{t('salesOrders.createDescription')}</DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-5 pt-2">
-            {/* Location — required */}
-            <div className="space-y-1.5">
-              <Label htmlFor="so-location">{t('salesOrders.location')}</Label>
-              <select
-                id="so-location"
-                {...createForm.register('location_id')}
-                className="w-full border rounded-md ps-3 pe-8 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="">{t('salesOrders.selectLocation')}</option>
-                {locationsList.map((l) => (
-                  <option key={l.id} value={l.id}>{l.name}</option>
-                ))}
-              </select>
-              {createForm.formState.errors.location_id && (
-                <p className="field-error" role="alert">{t(createForm.formState.errors.location_id.message)}</p>
-              )}
-            </div>
+          <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-6 pt-2">
 
-            {/* Customer + Channel */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm font-medium">
-                  {t('salesOrders.customer')}
-                </label>
+            {/* ── Section 1: Customer & Channel ── */}
+            <section className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Location — required */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="so-location">{t('salesOrders.location')}</Label>
+                  <select
+                    id="so-location"
+                    {...createForm.register('location_id')}
+                    className="w-full border rounded-md ps-3 pe-8 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="">{t('salesOrders.selectLocation')}</option>
+                    {locationsList.map((l) => (
+                      <option key={l.id} value={l.id}>{l.name}</option>
+                    ))}
+                  </select>
+                  {createForm.formState.errors.location_id && (
+                    <p className="field-error" role="alert">{t(createForm.formState.errors.location_id.message)}</p>
+                  )}
+                </div>
 
-                {/* Controlled: the displayed value is decoupled from customer_id,
-                    which stays '' for one-time orders so no sentinel reaches the API. */}
-                <select
-                  value={
-                    isOneTimeCustomer
-                      ? '__one_time__'
-                      : (createForm.watch('customer_id') || '')
-                  }
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val === '__one_time__') {
-                      setIsOneTimeCustomer(true);
-                      createForm.setValue('customer_id', '',
-                        { shouldDirty: true, shouldTouch: true });
-                    } else {
+                {/* Customer — searchable combobox with pinned one-time sentinel */}
+                <div className="space-y-1.5">
+                  <Label>{t('salesOrders.customer')}</Label>
+                  <SearchableCombobox
+                    name="so-customer"
+                    value={isOneTimeCustomer ? ONE_TIME : (createForm.watch('customer_id') || '')}
+                    selectedLabel={isOneTimeCustomer ? t('salesOrders.oneTimeCustomer') : createForm.watch('customer_label')}
+                    placeholder={t('salesOrders.selectCustomer')}
+                    fetchOptions={fetchCustomerOptions}
+                    getOptionValue={(o) => o.id}
+                    getOptionLabel={(o) => o.name}
+                    pinnedOptions={[{ id: ONE_TIME, name: t('salesOrders.oneTimeCustomer') }]}
+                    onSelect={(opt) => {
+                      if (opt.id === ONE_TIME) {
+                        setIsOneTimeCustomer(true);
+                        createForm.setValue('customer_id', '', { shouldDirty: true });
+                        createForm.setValue('customer_label', '');
+                      } else {
+                        setIsOneTimeCustomer(false);
+                        createForm.setValue('customer_id', opt.id, { shouldDirty: true });
+                        createForm.setValue('customer_label', opt.name);
+                        createForm.setValue('customer_name', '');
+                      }
+                    }}
+                    onClear={() => {
                       setIsOneTimeCustomer(false);
-                      createForm.setValue('customer_id', val,
-                        { shouldDirty: true, shouldTouch: true });
+                      createForm.setValue('customer_id', '', { shouldDirty: true });
+                      createForm.setValue('customer_label', '');
                       createForm.setValue('customer_name', '');
-                    }
-                  }}
-                  className="flex h-9 w-full rounded-md border border-input
-                             bg-transparent px-3 py-1 text-sm shadow-sm mt-1"
-                >
-                  <option value="">{t('salesOrders.selectCustomer')}</option>
-                  <option value="__one_time__">
-                    {t('salesOrders.oneTimeCustomer')}
-                  </option>
-                  <option disabled value="">──────────</option>
-                  {customersList.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-
-                {isOneTimeCustomer && (
-                  <input
-                    type="text"
-                    placeholder={t('salesOrders.oneTimeCustomerName')}
-                    {...createForm.register('customer_name')}
-                    className="flex h-9 w-full rounded-md border border-input
-                               bg-transparent px-3 py-1 text-sm shadow-sm mt-2"
+                    }}
                   />
+                  {isOneTimeCustomer && (
+                    <input
+                      type="text"
+                      placeholder={t('salesOrders.oneTimeCustomerName')}
+                      {...createForm.register('customer_name')}
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm mt-2"
+                    />
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Channel */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="so-channel">{t('salesOrders.channel')}</Label>
+                  <select
+                    id="so-channel"
+                    {...createForm.register('channel', {
+                      onChange: (e) => { if (e.target.value !== 'other') createForm.setValue('channel_detail', ''); },
+                    })}
+                    className="w-full border rounded-md ps-3 pe-8 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="">{t('salesOrders.selectChannel')}</option>
+                    {CHANNEL_OPTIONS.filter((o) => o.value !== '').map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+                {/* Channel detail — only when channel is 'other' */}
+                {createForm.watch('channel') === 'other' && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="so-channel-detail">{t('salesOrders.channelDetail')}</Label>
+                    <Input
+                      id="so-channel-detail"
+                      maxLength={100}
+                      placeholder={t('salesOrders.channelDetailPlaceholder')}
+                      {...createForm.register('channel_detail')}
+                    />
+                  </div>
                 )}
+              </div>
+            </section>
 
-                {createForm.formState.errors.customer_id && (
-                  <p className="text-destructive text-xs mt-1">
-                    {t(createForm.formState.errors.customer_id.message)}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="so-channel">{t('salesOrders.channel')}</Label>
-                <select
-                  id="so-channel"
-                  {...createForm.register('channel')}
-                  className="w-full border rounded-md ps-3 pe-8 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  <option value="">{t('salesOrders.selectChannel')}</option>
-                  {CHANNEL_OPTIONS.filter((o) => o.value !== '').map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Discount + Tax + Note */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="so-discount">{t('salesOrders.discount')}</Label>
-                <Input id="so-discount" type="number" min="0" step="0.01" {...createForm.register('discount')} className="text-end" />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="so-tax">{t('salesOrders.tax')}</Label>
-                <Input id="so-tax" type="number" min="0" step="0.01" {...createForm.register('tax')} className="text-end" />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="so-note">{t('salesOrders.note')}</Label>
-                <Input id="so-note" {...createForm.register('note')} placeholder={t('salesOrders.notePlaceholder')} />
-              </div>
-            </div>
-
-            {/* Dynamic line items */}
-            <div className="space-y-3">
+            {/* ── Section 2: Items ── */}
+            <section className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label>{t('salesOrders.items')}</Label>
-                <Button type="button" variant="outline" size="sm" onClick={() => append({ product_id: '', quantity: 1, price: '' })}>
+                <Button type="button" variant="outline" size="sm" onClick={() => append({ product_id: '', product_name: '', quantity: 1, price: '', discount: '0' })}>
                   <Plus className="h-4 w-4 me-1" />
                   {t('salesOrders.addItem')}
                 </Button>
               </div>
 
-              {fields.map((field, index) => (
-                <div key={field.id} className="grid grid-cols-12 gap-2 items-end rounded-lg border p-3">
-                  <div className="col-span-5 space-y-1">
-                    <Label className="text-xs">{t('salesOrders.product')}</Label>
+              {fields.map((field, index) => {
+                const q = parseFloat(createForm.watch(`items.${index}.quantity`) || '0');
+                const pr = parseFloat(createForm.watch(`items.${index}.price`) || '0');
+                const disc = parseFloat(createForm.watch(`items.${index}.discount`) || '0');
+                const lineGross = q * pr;
+                const overDiscount = disc > lineGross;
+                const lineTotal = roundMoney(lineGross - (overDiscount ? 0 : disc));
+                return (
+                  <div key={field.id} className="rounded-lg border p-3 space-y-2">
+                    <div className="grid grid-cols-12 gap-2 items-end">
+                      <div className="col-span-12 sm:col-span-5 space-y-1">
+                        <Label className="text-xs">{t('salesOrders.product')}</Label>
+                        <SearchableCombobox
+                          name={`so-item-${index}`}
+                          value={createForm.watch(`items.${index}.product_id`) || ''}
+                          selectedLabel={createForm.watch(`items.${index}.product_name`)}
+                          placeholder={t('salesOrders.selectProduct')}
+                          fetchOptions={fetchProductOptions}
+                          getOptionValue={(o) => o.id}
+                          getOptionLabel={(o) => (o.sku ? `${o.name} · ${o.sku}` : o.name)}
+                          onSelect={(opt) => {
+                            createForm.setValue(`items.${index}.product_id`, opt.id, { shouldDirty: true });
+                            createForm.setValue(`items.${index}.product_name`, opt.name);
+                            createForm.setValue(`items.${index}.price`, String(parseFloat(opt.price ?? 0)));
+                          }}
+                          onClear={() => {
+                            createForm.setValue(`items.${index}.product_id`, '', { shouldDirty: true });
+                            createForm.setValue(`items.${index}.product_name`, '');
+                          }}
+                        />
+                      </div>
+                      <div className="col-span-4 sm:col-span-2 space-y-1">
+                        <Label className="text-xs">{t('salesOrders.quantity')}</Label>
+                        <Input type="number" min="1" step="1" {...createForm.register(`items.${index}.quantity`)} className="text-end" />
+                      </div>
+                      <div className="col-span-4 sm:col-span-2 space-y-1">
+                        <Label className="text-xs">{t('salesOrders.unitPrice')}</Label>
+                        <Input type="number" min="0" step="0.01" {...createForm.register(`items.${index}.price`)} className="text-end" />
+                      </div>
+                      <div className="col-span-4 sm:col-span-2 space-y-1">
+                        <Label className="text-xs">{t('salesOrders.lineDiscount')}</Label>
+                        <Input
+                          type="number" min="0" step="0.01"
+                          {...createForm.register(`items.${index}.discount`)}
+                          className={`text-end ${overDiscount ? 'border-destructive' : ''}`}
+                        />
+                      </div>
+                      <div className="col-span-12 sm:col-span-1 flex justify-end">
+                        <Button
+                          type="button" variant="ghost" size="sm"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => remove(index)}
+                          disabled={fields.length === 1}
+                          aria-label={t('salesOrders.removeItem')}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      {overDiscount
+                        ? <span className="text-destructive">{t('salesOrders.errors.discountTooHigh')}</span>
+                        : <span />}
+                      <span className="text-muted-foreground tabular-nums">
+                        {t('salesOrders.lineTotal')}: {formatCurrency(lineTotal, currency)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </section>
+
+            {/* ── Section 3: Notes ── */}
+            <section className="space-y-1.5">
+              <Label htmlFor="so-note">{t('salesOrders.note')}</Label>
+              <Input id="so-note" {...createForm.register('note')} placeholder={t('salesOrders.notePlaceholder')} />
+            </section>
+
+            {/* ── Section 4: Totals (live mirror of the backend canonical formula) ── */}
+            {(() => {
+              const items = createForm.watch('items') || [];
+              let subtotal = 0, lineDiscounts = 0;
+              for (const it of items) {
+                const q = parseFloat(it.quantity || '0');
+                const pr = parseFloat(it.price || '0');
+                const d = parseFloat(it.discount || '0');
+                const gross = roundMoney(q * pr);
+                subtotal = roundMoney(subtotal + gross);
+                if (d >= 0 && d <= gross) lineDiscounts = roundMoney(lineDiscounts + d);
+              }
+              const rate = parseFloat(createForm.watch('tax_rate') || String(defaultTaxRate));
+              const taxableBase = roundMoney(subtotal - lineDiscounts);
+              const taxAmount = roundMoney(taxableBase * rate / 100);
+              const grandTotal = roundMoney(taxableBase + taxAmount);
+              return (
+                <section className="rounded-lg border bg-muted/30 p-4 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">{t('salesOrders.subtotal')}</span>
+                    <span className="tabular-nums">{formatCurrency(subtotal, currency)}</span>
+                  </div>
+                  {lineDiscounts > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">{t('salesOrders.lineDiscounts')}</span>
+                      <span className="tabular-nums text-muted-foreground">-{formatCurrency(lineDiscounts, currency)}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{t('salesOrders.taxRate')}</span>
                     <select
-                      {...createForm.register(`items.${index}.product_id`)}
-                      className="w-full border rounded-md ps-2 pe-6 py-1.5 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                      {...createForm.register('tax_rate')}
+                      aria-label={t('salesOrders.taxRate')}
+                      className="border rounded-md ps-2 pe-6 py-1 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                     >
-                      <option value="">{t('salesOrders.selectProduct')}</option>
-                      {productsList.map((p) => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
+                      {allowedTaxRates.map((r) => (<option key={r} value={String(r)}>{r}%</option>))}
                     </select>
                   </div>
-                  <div className="col-span-3 space-y-1">
-                    <Label className="text-xs">{t('salesOrders.quantity')}</Label>
-                    <Input type="number" min="1" step="1" {...createForm.register(`items.${index}.quantity`)} className="text-end" />
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">{t('salesOrders.taxAmount')}</span>
+                    <span className="tabular-nums">{formatCurrency(taxAmount, currency)}</span>
                   </div>
-                  <div className="col-span-3 space-y-1">
-                    <Label className="text-xs">{t('salesOrders.unitPrice')}</Label>
-                    <Input type="number" min="0" step="0.01" {...createForm.register(`items.${index}.price`)} className="text-end" />
+                  <div className="flex justify-between border-t pt-2 font-semibold">
+                    <span>{t('salesOrders.grandTotal')}</span>
+                    <span className="tabular-nums">{formatCurrency(grandTotal, currency)}</span>
                   </div>
-                  <div className="col-span-1 flex justify-end">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => remove(index)}
-                      disabled={fields.length === 1}
-                      aria-label={t('salesOrders.removeItem')}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                </section>
+              );
+            })()}
 
             <DialogFooter>
               <Button
@@ -1069,11 +1170,7 @@ export default function SalesOrdersPage() {
                 onClick={() => {
                   setCreateModalOpen(false);
                   setIsOneTimeCustomer(false);
-                  createForm.reset({
-                    location_id: '', customer_id: '', customer_name: '', channel: '',
-                    discount: '0', tax: '0', note: '',
-                    items: [{ product_id: '', quantity: 1, price: '' }],
-                  });
+                  createForm.reset(blankCreateForm());
                 }}
                 disabled={createMutation.isPending}
               >

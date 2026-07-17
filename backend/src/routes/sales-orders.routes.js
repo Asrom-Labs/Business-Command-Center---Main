@@ -23,8 +23,11 @@ router.post('/', requireMinRole('staff'), [
   body('customer_id').optional({ nullable: true }).isUUID(),
   body('customer_name').optional({ nullable: true }).trim().isLength({ max: 255 }),
   body('channel').optional().isIn(['walk_in', 'phone', 'in_store', 'whatsapp', 'instagram', 'snapchat', 'tiktok', 'online', 'other']),
+  body('channel_detail').optional({ nullable: true }).trim().isLength({ max: 100 }),
   body('discount').optional({ nullable: true }).isFloat({ min: 0 }),
   body('tax').optional({ nullable: true }).isFloat({ min: 0 }),
+  // tax_rate is required; membership in the currency's allowed set is enforced in the controller.
+  body('tax_rate').isFloat({ min: 0 }).withMessage('tax_rate is required'),
   body('note').optional({ nullable: true }).trim(),
   body('items').isArray({ min: 1 }).withMessage('At least one item is required'),
   body('items.*.product_id').isUUID(),

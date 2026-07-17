@@ -277,10 +277,12 @@ CREATE TABLE IF NOT EXISTS sales_orders (
   location_id     UUID          NOT NULL REFERENCES locations(id)     ON DELETE RESTRICT,
   user_id         UUID                   REFERENCES users(id)         ON DELETE RESTRICT,
   channel         VARCHAR(30)   NOT NULL DEFAULT 'walk_in' CHECK (channel IN ('walk_in','phone','in_store','whatsapp','instagram','snapchat','tiktok','online','other')),
+  channel_detail  VARCHAR(100),  -- free-text detail when channel = 'other'; NULL otherwise (migration 007)
   status          VARCHAR(20)   NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','partially_paid','paid','processing','shipped','delivered','cancelled')),
   subtotal        NUMERIC(12,2) NOT NULL DEFAULT 0,
   discount        NUMERIC(12,2) NOT NULL DEFAULT 0,
-  tax             NUMERIC(12,2) NOT NULL DEFAULT 0,
+  tax             NUMERIC(12,2) NOT NULL DEFAULT 0,   -- computed tax AMOUNT snapshot (frozen for pre-007 orders)
+  tax_rate        NUMERIC(5,2),  -- tax percentage applied (e.g. 16.00); NULL for pre-007 historical orders (migration 007)
   total           NUMERIC(12,2) NOT NULL DEFAULT 0,
   amount_paid     NUMERIC(12,2) NOT NULL DEFAULT 0,
   note            TEXT,

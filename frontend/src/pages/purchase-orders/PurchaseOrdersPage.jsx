@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useForm, useFieldArray } from 'react-hook-form';
@@ -21,6 +21,7 @@ import ConfirmModal from '@/components/shared/ConfirmModal';
 import DataTable from '@/components/shared/DataTable';
 import PageHeader from '@/components/shared/PageHeader';
 import SearchInput from '@/components/shared/SearchInput';
+import SearchableCombobox from '@/components/shared/SearchableCombobox';
 import StatusBadge from '@/components/shared/StatusBadge';
 import {
   createPurchaseOrder,
@@ -40,6 +41,7 @@ import { useOrg } from '@/hooks/useOrg';
 const poHeaderSchema = z.object({
   supplier_id: z.string().min(1, 'purchaseOrders.errors.supplierRequired').optional(),
   supplier_name: z.string().optional(),
+  supplier_label: z.string().optional(),   // display-only label for the picked supplier
   location_id: z.string().min(1, 'purchaseOrders.errors.locationRequired'),
   expected_date: z.string().optional().or(z.literal('')),
   note: z.string().optional().or(z.literal('')),
@@ -86,14 +88,8 @@ export default function PurchaseOrdersPage() {
     enabled: !!selectedId,
   });
 
-  const suppliersDropdown = useQuery({
-    queryKey: ['suppliers', 'dropdown'],
-    queryFn: () => fetchSuppliers({ limit: 100 }),
-    select: (result) => result.data ?? [],
-    staleTime: 10 * 60 * 1000,
-    enabled: createModalOpen,
-  });
-
+  // Suppliers + products are now server-searched on demand via SearchableCombobox
+  // (W5.5-P2). Locations stay a small preloaded native select.
   const locationsDropdown = useQuery({
     queryKey: ['locations', 'all'],
     queryFn: () => fetchLocations({ limit: 100 }),
@@ -101,20 +97,20 @@ export default function PurchaseOrdersPage() {
     staleTime: 10 * 60 * 1000,
   });
 
-  const productsDropdown = useQuery({
-    queryKey: ['products', 'all'],
-    queryFn: () => fetchProducts({ limit: 100 }),
-    select: (result) => result.data ?? [],
-    staleTime: 10 * 60 * 1000,
-  });
+  const fetchSupplierOptions = useCallback(
+    (term) => fetchSuppliers({ search: term, limit: 20 }).then((r) => r.data ?? []),
+    []
+  );
+  const fetchProductOptions = useCallback(
+    (term) => fetchProducts({ search: term, limit: 20 }).then((r) => r.data ?? []),
+    []
+  );
 
   // 6. Derived values
   const poList = purchaseOrdersQuery.data?.items ?? [];
   const pagination = purchaseOrdersQuery.data?.pagination ?? null;
   const selectedPO = purchaseOrderQuery.data ?? null;
-  const suppliersList = suppliersDropdown.data ?? [];
   const locationsList = locationsDropdown.data ?? [];
-  const productsList = productsDropdown.data ?? [];
 
   // 7. Client-side search
   const filteredPOList = search.trim()
@@ -158,11 +154,20 @@ export default function PurchaseOrdersPage() {
     resolver: zodResolver(poHeaderSchema),
     defaultValues: {
       supplier_id: '',
+      supplier_name: '',
+      supplier_label: '',
       location_id: '',
       expected_date: '',
       note: '',
-      items: [{ product_id: '', quantity: 1, unit_cost: '' }],
+      items: [{ product_id: '', product_name: '', quantity: 1, unit_cost: '' }],
     },
+  });
+
+  // Single source for resetting the create form (keeps all reset paths identical).
+  const blankPOForm = () => ({
+    supplier_id: '', supplier_name: '', supplier_label: '', location_id: '',
+    expected_date: '', note: '',
+    items: [{ product_id: '', product_name: '', quantity: 1, unit_cost: '' }],
   });
 
   // 12. Field array for line items
@@ -184,10 +189,7 @@ export default function PurchaseOrdersPage() {
       toast.success(t('purchaseOrders.addSuccess'));
       setCreateModalOpen(false);
       setIsOneTimeSupplier(false);
-      createForm.reset({
-        supplier_id: '', supplier_name: '', location_id: '', expected_date: '', note: '',
-        items: [{ product_id: '', quantity: 1, unit_cost: '' }],
-      });
+      createForm.reset(blankPOForm());
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   });
@@ -231,10 +233,7 @@ export default function PurchaseOrdersPage() {
 
   // 15. Open create modal
   const openCreateModal = () => {
-    createForm.reset({
-      supplier_id: '', supplier_name: '', location_id: '', expected_date: '', note: '',
-      items: [{ product_id: '', quantity: 1, unit_cost: '' }],
-    });
+    createForm.reset(blankPOForm());
     setIsOneTimeSupplier(false);
     setCreateModalOpen(true);
   };
@@ -543,9 +542,21 @@ export default function PurchaseOrdersPage() {
                 </div>
               </div>
 
-              {/* Action buttons */}
+              {/* Action buttons — button-order convention: destructive Cancel first,
+                  affirmative action (Submit / Receive Goods) last. */}
               {(selectedPO.status === 'draft' || selectedPO.status === 'submitted' || selectedPO.status === 'partially_received') && (
                 <div className="flex flex-wrap gap-3">
+                  {isAdmin && (
+                    <Button
+                      variant="outline"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+                      onClick={() => setCancelTarget(selectedPO)}
+                      disabled={cancelMutation.isPending}
+                    >
+                      {t('purchaseOrders.cancelPO')}
+                    </Button>
+                  )}
+
                   {isAdmin && selectedPO.status === 'draft' && (
                     <Button onClick={() => submitMutation.mutate(selectedPO.id)} disabled={submitMutation.isPending}>
                       {submitMutation.isPending && <Loader2 className="h-4 w-4 me-2 animate-spin" />}
@@ -557,17 +568,6 @@ export default function PurchaseOrdersPage() {
                     <Button onClick={openReceiveModal}>
                       <Package className="h-4 w-4 me-2" />
                       {t('purchaseOrders.receiveGoods')}
-                    </Button>
-                  )}
-
-                  {isAdmin && (
-                    <Button
-                      variant="outline"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
-                      onClick={() => setCancelTarget(selectedPO)}
-                      disabled={cancelMutation.isPending}
-                    >
-                      {t('purchaseOrders.cancelPO')}
                     </Button>
                   )}
                 </div>
@@ -664,10 +664,7 @@ export default function PurchaseOrdersPage() {
           if (!open) {
             setCreateModalOpen(false);
             setIsOneTimeSupplier(false);
-            createForm.reset({
-              supplier_id: '', supplier_name: '', location_id: '', expected_date: '', note: '',
-              items: [{ product_id: '', quantity: 1, unit_cost: '' }],
-            });
+            createForm.reset(blankPOForm());
           }
         }}
       >
@@ -684,37 +681,36 @@ export default function PurchaseOrdersPage() {
                 {t('purchaseOrders.supplier')}
               </label>
 
-              <select
-                value={
-                  isOneTimeSupplier
-                    ? '__one_time__'
-                    : (createForm.watch('supplier_id') || '')
-                }
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === '__one_time__') {
-                    setIsOneTimeSupplier(true);
-                    createForm.setValue('supplier_id', '',
-                      { shouldDirty: true, shouldTouch: true });
-                  } else {
+              <div className="mt-1">
+                <SearchableCombobox
+                  name="po-supplier"
+                  value={isOneTimeSupplier ? '__one_time__' : (createForm.watch('supplier_id') || '')}
+                  selectedLabel={isOneTimeSupplier ? t('purchaseOrders.oneTimeSupplier') : createForm.watch('supplier_label')}
+                  placeholder={t('purchaseOrders.selectSupplier')}
+                  fetchOptions={fetchSupplierOptions}
+                  getOptionValue={(o) => o.id}
+                  getOptionLabel={(o) => o.name}
+                  pinnedOptions={[{ id: '__one_time__', name: t('purchaseOrders.oneTimeSupplier') }]}
+                  onSelect={(opt) => {
+                    if (opt.id === '__one_time__') {
+                      setIsOneTimeSupplier(true);
+                      createForm.setValue('supplier_id', '', { shouldDirty: true });
+                      createForm.setValue('supplier_label', '');
+                    } else {
+                      setIsOneTimeSupplier(false);
+                      createForm.setValue('supplier_id', opt.id, { shouldDirty: true });
+                      createForm.setValue('supplier_label', opt.name);
+                      createForm.setValue('supplier_name', '');
+                    }
+                  }}
+                  onClear={() => {
                     setIsOneTimeSupplier(false);
-                    createForm.setValue('supplier_id', val,
-                      { shouldDirty: true, shouldTouch: true });
+                    createForm.setValue('supplier_id', '', { shouldDirty: true });
+                    createForm.setValue('supplier_label', '');
                     createForm.setValue('supplier_name', '');
-                  }
-                }}
-                className="flex h-9 w-full rounded-md border border-input
-                           bg-transparent px-3 py-1 text-sm shadow-sm mt-1"
-              >
-                <option value="">{t('purchaseOrders.selectSupplier')}</option>
-                <option value="__one_time__">
-                  {t('purchaseOrders.oneTimeSupplier')}
-                </option>
-                <option disabled value="">──────────</option>
-                {suppliersList.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
+                  }}
+                />
+              </div>
 
               {isOneTimeSupplier && (
                 <input
@@ -767,7 +763,7 @@ export default function PurchaseOrdersPage() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label>{t('purchaseOrders.items')}</Label>
-                <Button type="button" variant="outline" size="sm" onClick={() => append({ product_id: '', quantity: 1, unit_cost: '' })}>
+                <Button type="button" variant="outline" size="sm" onClick={() => append({ product_id: '', product_name: '', quantity: 1, unit_cost: '' })}>
                   <Plus className="h-4 w-4 me-1" />
                   {t('purchaseOrders.addItem')}
                 </Button>
@@ -777,15 +773,23 @@ export default function PurchaseOrdersPage() {
                 <div key={field.id} className="grid grid-cols-12 gap-2 items-end rounded-lg border p-3">
                   <div className="col-span-5 space-y-1">
                     <Label className="text-xs">{t('purchaseOrders.product')}</Label>
-                    <select
-                      {...createForm.register(`items.${index}.product_id`)}
-                      className="w-full border rounded-md ps-2 pe-6 py-1.5 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                    >
-                      <option value="">{t('purchaseOrders.selectProduct')}</option>
-                      {productsList.map((p) => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </select>
+                    <SearchableCombobox
+                      name={`po-item-${index}`}
+                      value={createForm.watch(`items.${index}.product_id`) || ''}
+                      selectedLabel={createForm.watch(`items.${index}.product_name`)}
+                      placeholder={t('purchaseOrders.selectProduct')}
+                      fetchOptions={fetchProductOptions}
+                      getOptionValue={(o) => o.id}
+                      getOptionLabel={(o) => (o.sku ? `${o.name} · ${o.sku}` : o.name)}
+                      onSelect={(opt) => {
+                        createForm.setValue(`items.${index}.product_id`, opt.id, { shouldDirty: true });
+                        createForm.setValue(`items.${index}.product_name`, opt.name);
+                      }}
+                      onClear={() => {
+                        createForm.setValue(`items.${index}.product_id`, '', { shouldDirty: true });
+                        createForm.setValue(`items.${index}.product_name`, '');
+                      }}
+                    />
                   </div>
 
                   <div className="col-span-3 space-y-1">
@@ -822,10 +826,7 @@ export default function PurchaseOrdersPage() {
                 onClick={() => {
                   setCreateModalOpen(false);
                   setIsOneTimeSupplier(false);
-                  createForm.reset({
-                    supplier_id: '', supplier_name: '', location_id: '', expected_date: '', note: '',
-                    items: [{ product_id: '', quantity: 1, unit_cost: '' }],
-                  });
+                  createForm.reset(blankPOForm());
                 }}
                 disabled={createMutation.isPending}
               >

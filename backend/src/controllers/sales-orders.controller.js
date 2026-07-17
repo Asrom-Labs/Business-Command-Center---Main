@@ -3,6 +3,11 @@
 const { pool, withTransaction } = require('../db/pool');
 const auditService = require('../services/audit.service');
 const stockService = require('../services/stock.service');
+const taxService = require('../services/tax.service');
+
+// Half-up rounding to 2 decimal places (money scale, D2). All order money here is
+// non-negative, so Math.round (which rounds .5 up for positives) gives half-up.
+const roundMoney = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 
 const list = async (req, res, next) => {
   try {
@@ -43,7 +48,7 @@ const create = async (req, res, next) => {
   try {
     const {
       customer_id = null, customer_name = null, location_id, channel = 'walk_in',
-      discount = 0, tax = 0, note = null, items,
+      channel_detail = null, discount = 0, tax_rate, note = null, items,
     } = req.body;
     const orgId = req.user.org_id;
 
@@ -53,6 +58,12 @@ const create = async (req, res, next) => {
     const oneTimeName = customer_id
       ? null
       : (typeof customer_name === 'string' && customer_name.trim() !== '' ? customer_name.trim() : null);
+
+    // channel_detail is only meaningful for the 'other' channel: trim, empty → NULL,
+    // and force NULL for any non-'other' channel regardless of what was sent (BUG-14 pattern).
+    const normalizedChannelDetail = channel === 'other'
+      ? (typeof channel_detail === 'string' && channel_detail.trim() !== '' ? channel_detail.trim() : null)
+      : null;
 
     const result = await withTransaction(async (client) => {
       // Validate location
@@ -64,6 +75,16 @@ const create = async (req, res, next) => {
         const err = new Error('Location not found'); err.isAppError = true; err.statusCode = 422; err.errorCode = 'VALIDATION_ERROR'; throw err;
       }
 
+      // Resolve org currency and enforce that tax_rate is a member of the allowed set (D4).
+      const orgRes = await client.query(`SELECT currency FROM organizations WHERE id = $1`, [orgId]);
+      const currency = orgRes.rows.length ? orgRes.rows[0].currency : null;
+      const allowedRates = taxService.getAllowedTaxRates(currency);
+      const taxRateNum = parseFloat(tax_rate);
+      if (!allowedRates.includes(taxRateNum)) {
+        const err = new Error(`tax_rate ${tax_rate} is not allowed for currency ${currency}. Allowed rates: ${allowedRates.join(', ')}`);
+        err.isAppError = true; err.statusCode = 422; err.errorCode = 'VALIDATION_ERROR'; throw err;
+      }
+
       // Validate customer if provided
       if (customer_id) {
         const custChk = await client.query(`SELECT id FROM customers WHERE id = $1 AND organization_id = $2 AND active = TRUE`, [customer_id, orgId]);
@@ -72,11 +93,15 @@ const create = async (req, res, next) => {
         }
       }
 
-      let subtotal = 0;
+      // ── Canonical SO totals math — THE single source of truth. The frontend
+      //    totals panel mirrors this exactly; never let them diverge. All money
+      //    is half-up rounded to 2dp (D2). subtotal is GROSS (pre-discount). ──
+      let subtotal = 0;         // Σ round(qty * price)
+      let lineDiscounts = 0;    // Σ per-line discount
 
-      // Validate products and compute subtotal
       const resolvedItems = [];
-      for (const item of items) {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
         const { product_id, variant_id = null, quantity, price: overridePrice = null, discount: itemDiscount = 0 } = item;
 
         const prodRes = await client.query(
@@ -106,25 +131,40 @@ const create = async (req, res, next) => {
         }
 
         const prod = prodRes.rows[0];
-        const effectivePrice = overridePrice !== null ? overridePrice : (prod.var_price !== null ? prod.var_price : prod.price || 0);
-        const effectiveCost = prod.var_cost !== null ? prod.var_cost : prod.cost || 0;
-        const lineTotal = effectivePrice * quantity - itemDiscount;
-        subtotal += lineTotal;
+        const effectivePrice = parseFloat(overridePrice !== null ? overridePrice : (prod.var_price !== null ? prod.var_price : prod.price || 0));
+        const effectiveCost = parseFloat(prod.var_cost !== null ? prod.var_cost : prod.cost || 0);
+        const qty = parseInt(quantity, 10);
+        const lineDiscount = parseFloat(itemDiscount || 0);
+        const lineGross = roundMoney(qty * effectivePrice);
 
-        resolvedItems.push({ product_id, variant_id, quantity, price: effectivePrice, discount: itemDiscount, cost: effectiveCost });
+        // Per-line guard: 0 <= discount <= qty * price.
+        if (lineDiscount < 0 || lineDiscount > lineGross) {
+          const err = new Error(`Line ${i + 1}: discount must be between 0 and the line total (${lineGross.toFixed(2)})`);
+          err.isAppError = true; err.statusCode = 422; err.errorCode = 'VALIDATION_ERROR'; throw err;
+        }
+
+        subtotal = roundMoney(subtotal + lineGross);
+        lineDiscounts = roundMoney(lineDiscounts + lineDiscount);
+
+        resolvedItems.push({ product_id, variant_id, quantity: qty, price: effectivePrice, discount: lineDiscount, cost: effectiveCost });
       }
 
-      const total = subtotal - discount + tax;
-
-      if (total < 0) {
-        const err = new Error('Order total cannot be negative');
+      const orderDiscount = roundMoney(parseFloat(discount || 0));   // order-level (D3(c)); 0 for new orders
+      const taxableBase = roundMoney(subtotal - lineDiscounts - orderDiscount);
+      if (taxableBase < 0) {
+        const err = new Error('Order discount cannot exceed the discounted subtotal');
         err.isAppError = true; err.statusCode = 422; err.errorCode = 'BUSINESS_RULE'; throw err;
       }
+      const taxAmount = roundMoney(taxableBase * taxRateNum / 100);
+      const total = roundMoney(taxableBase + taxAmount);
 
       const soRes = await client.query(
-        `INSERT INTO sales_orders (organization_id, customer_id, customer_name, location_id, user_id, channel, status, subtotal, discount, tax, total, note)
-         VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8, $9, $10, $11) RETURNING *`,
-        [orgId, customer_id, oneTimeName, location_id, req.user.id, channel, subtotal, discount, tax, total, note]
+        `INSERT INTO sales_orders
+           (organization_id, customer_id, customer_name, location_id, user_id, channel, channel_detail,
+            status, subtotal, discount, tax, tax_rate, total, note)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9, $10, $11, $12, $13) RETURNING *`,
+        [orgId, customer_id, oneTimeName, location_id, req.user.id, channel, normalizedChannelDetail,
+         subtotal, orderDiscount, taxAmount, taxRateNum, total, note]
       );
       const soId = soRes.rows[0].id;
 

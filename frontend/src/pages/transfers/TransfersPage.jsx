@@ -426,13 +426,7 @@ export default function TransfersPage() {
 
               {isAdmin && transfer.status === 'pending' && (
                 <div className="flex flex-wrap gap-3">
-                  <Button
-                    onClick={() => setConfirmTarget(transfer.id)}
-                    disabled={confirmMutation.isPending || cancelMutation.isPending}
-                  >
-                    {confirmMutation.isPending && <Loader2 className="h-4 w-4 me-2 animate-spin" />}
-                    {t('transfers.confirmTransferAction')}
-                  </Button>
+                  {/* Button-order convention: destructive Cancel first, affirmative Confirm last. */}
                   <Button
                     variant="outline"
                     className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
@@ -440,6 +434,13 @@ export default function TransfersPage() {
                     disabled={confirmMutation.isPending || cancelMutation.isPending}
                   >
                     {t('transfers.cancelTransferAction')}
+                  </Button>
+                  <Button
+                    onClick={() => setConfirmTarget(transfer.id)}
+                    disabled={confirmMutation.isPending || cancelMutation.isPending}
+                  >
+                    {confirmMutation.isPending && <Loader2 className="h-4 w-4 me-2 animate-spin" />}
+                    {t('transfers.confirmTransferAction')}
                   </Button>
                 </div>
               )}

@@ -147,6 +147,7 @@
     "export": "Export",
     "import": "Import",
     "loading": "Loading…",
+    "clear": "Clear",
     "noData": "No data found",
     "confirm": "Confirm",
     "back": "Back",
@@ -361,7 +362,7 @@
     "oneTimeSupplier": "\u2726 One-time / Unknown supplier",
     "oneTimeSupplierName": "Supplier name (optional)",
     "selectLocation": "Select a location",
-    "items": "Line Items",
+    "items": "Items",
     "addItem": "Add Item",
     "removeItem": "Remove",
     "product": "Product",
@@ -433,7 +434,14 @@
     "selectChannel": "Select a channel (optional)",
     "discount": "Order Discount",
     "tax": "Tax",
-    "items": "Line Items",
+    "taxRate": "Tax rate",
+    "taxAmount": "Tax amount",
+    "grandTotal": "Grand total",
+    "lineDiscount": "Discount",
+    "lineDiscounts": "Line discounts",
+    "channelDetail": "Channel detail",
+    "channelDetailPlaceholder": "e.g. marketplace name",
+    "items": "Items",
     "addItem": "Add Item",
     "removeItem": "Remove",
     "product": "Product",
@@ -488,8 +496,12 @@
       "itemsRequired": "At least one line item is required",
       "productRequired": "Please select a product",
       "quantityRequired": "Quantity must be at least 1",
-      "priceRequired": "Price must be 0 or more"
+      "priceRequired": "Price must be 0 or more",
+      "discountTooHigh": "Discount cannot exceed the line total"
     }
+  },
+  "combobox": {
+    "noResults": "No results"
   },
   "transfers": {
     "pageTitle": "Transfers — Marsa",

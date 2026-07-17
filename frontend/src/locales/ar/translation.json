@@ -147,6 +147,7 @@
     "export": "تصدير",
     "import": "استيراد",
     "loading": "جارٍ التحميل…",
+    "clear": "مسح",
     "noData": "لا توجد بيانات",
     "confirm": "تأكيد",
     "back": "رجوع",
@@ -361,7 +362,7 @@
     "oneTimeSupplier": "\u2726 مورد لمرة واحدة / غير محدد",
     "oneTimeSupplierName": "اسم المورد (اختياري)",
     "selectLocation": "اختر موقعًا",
-    "items": "بنود الطلب",
+    "items": "العناصر",
     "addItem": "إضافة بند",
     "removeItem": "حذف",
     "product": "المنتج",
@@ -433,7 +434,14 @@
     "selectChannel": "اختر القناة (اختياري)",
     "discount": "خصم الطلب",
     "tax": "الضريبة",
-    "items": "بنود الطلب",
+    "taxRate": "نسبة الضريبة",
+    "taxAmount": "قيمة الضريبة",
+    "grandTotal": "الإجمالي الكلي",
+    "lineDiscount": "الخصم",
+    "lineDiscounts": "خصومات البنود",
+    "channelDetail": "تفاصيل القناة",
+    "channelDetailPlaceholder": "مثال: اسم السوق الإلكتروني",
+    "items": "العناصر",
     "addItem": "إضافة بند",
     "removeItem": "حذف",
     "product": "المنتج",
@@ -488,8 +496,12 @@
       "itemsRequired": "يجب إضافة بند واحد على الأقل",
       "productRequired": "يرجى اختيار منتج",
       "quantityRequired": "يجب أن تكون الكمية 1 على الأقل",
-      "priceRequired": "يجب أن يكون السعر 0 أو أكثر"
+      "priceRequired": "يجب أن يكون السعر 0 أو أكثر",
+      "discountTooHigh": "لا يمكن أن يتجاوز الخصم إجمالي البند"
     }
+  },
+  "combobox": {
+    "noResults": "لا توجد نتائج"
   },
   "transfers": {
     "pageTitle": "التحويلات — مرسى",

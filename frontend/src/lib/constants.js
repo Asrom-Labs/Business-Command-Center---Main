@@ -89,6 +89,21 @@ export const ORDER_CHANNELS = [
   { value: 'wholesale', label: 'Wholesale' },
 ];
 
+// ── Tax rate policy — mirrors backend/src/services/tax.service.js EXACTLY.
+// W7-P1 replaces this with org-configurable rates. If rates change here, change
+// the backend helper in the SAME commit (the UI must never diverge from the backend).
+export const TAX_RATE_POLICY = {
+  JOD: { allowed: [16, 0], default: 16 },
+  SAR: { allowed: [15, 0], default: 15 },
+};
+const TAX_FALLBACK = { allowed: [16, 0], default: 16 };
+function taxPolicyFor(currency) {
+  const key = String(currency || '').trim().toUpperCase();
+  return TAX_RATE_POLICY[key] || TAX_FALLBACK;
+}
+export function getAllowedTaxRates(currency) { return taxPolicyFor(currency).allowed; }
+export function getDefaultTaxRate(currency) { return taxPolicyFor(currency).default; }
+
 // Navigation items — used to build the sidebar
 // visibleTo = minimum role required to see this item
 export const NAV_ITEMS = [
