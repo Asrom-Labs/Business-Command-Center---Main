@@ -4,6 +4,7 @@ const { pool, withTransaction } = require('../db/pool');
 const auditService = require('../services/audit.service');
 const stockService = require('../services/stock.service');
 const taxService = require('../services/tax.service');
+const orderFinance = require('../services/order-finance.service');
 
 // Half-up rounding to 2 decimal places (money scale, D2). All order money here is
 // non-negative, so Math.round (which rounds .5 up for positives) gives half-up.
@@ -28,7 +29,8 @@ const list = async (req, res, next) => {
 
     vals.push(limit, offset);
     const dataRes = await pool.query(
-      `SELECT so.*, COALESCE(c.name, so.customer_name) AS customer_name, l.name AS location_name, u.name AS user_name
+      `SELECT so.*, COALESCE(c.name, so.customer_name) AS customer_name, l.name AS location_name, u.name AS user_name,
+              ${orderFinance.REFUNDED_TOTAL_SUBQUERY} AS refunded_total
        FROM sales_orders so
        LEFT JOIN customers c ON c.id = so.customer_id
        JOIN locations l ON l.id = so.location_id
@@ -37,8 +39,13 @@ const list = async (req, res, next) => {
        ORDER BY so.created_at DESC LIMIT $${idx} OFFSET $${idx + 1}`,
       vals
     );
+    // Attach the net figures so the frontend never computes payable itself (INV-2).
+    const rows = dataRes.rows.map((row) => {
+      const fin = orderFinance.deriveOrderFinance(row.total, row.refunded_total, row.amount_paid);
+      return { ...row, refunded_total: parseFloat(row.refunded_total), ...fin };
+    });
     return res.json({
-      success: true, data: dataRes.rows, message: 'Success',
+      success: true, data: rows, message: 'Success',
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
   } catch (err) { next(err); }
@@ -230,6 +237,17 @@ const getOne = async (req, res, next) => {
     const so = soRes.rows[0];
     so.items = itemsRes.rows;
     so.payments = paymentsRes.rows;
+
+    // Refund-aware finance + return status (INV-2/3/4/5). Single source: order-finance.service.
+    const { refundedTotal, fullyReturned, hasReturnable } = await orderFinance.getOrderReturnSummary(pool, id);
+    const fin = orderFinance.deriveOrderFinance(so.total, refundedTotal, so.amount_paid);
+    so.refunded_total = refundedTotal;
+    so.net_payable = fin.net_payable;
+    so.remaining = fin.remaining;
+    so.credit_owed = fin.credit_owed;
+    so.fully_returned = fullyReturned;
+    so.has_returnable = hasReturnable;
+
     return res.json({ success: true, data: so, message: 'Success' });
   } catch (err) { next(err); }
 };
@@ -271,6 +289,17 @@ const updateStatus = async (req, res, next) => {
       if (!validTransitions[current] || !validTransitions[current].includes(status)) {
         const err = new Error(`Cannot transition sales order from '${current}' to '${status}'`);
         err.isAppError = true; err.statusCode = 422; err.errorCode = 'BUSINESS_RULE'; throw err;
+      }
+
+      // INV-4: a fulfilment-advancing transition is refused when the order is FULLY
+      // returned (nothing left to fulfil). A PARTIAL return does not block — the
+      // un-returned remainder still ships. Cancellation is never blocked here.
+      if (status === 'processing' || status === 'shipped' || status === 'delivered') {
+        const { fullyReturned } = await orderFinance.getOrderReturnSummary(client, id);
+        if (fullyReturned) {
+          const err = new Error('Cannot advance a fully-returned order — nothing remains to fulfil');
+          err.isAppError = true; err.statusCode = 409; err.errorCode = 'BUSINESS_RULE'; throw err;
+        }
       }
 
       // On cancellation, restore stock for all items net of any prior returns

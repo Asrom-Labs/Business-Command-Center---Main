@@ -2,6 +2,7 @@
 
 const { pool, withTransaction } = require('../db/pool');
 const auditService = require('../services/audit.service');
+const orderFinance = require('../services/order-finance.service');
 
 const listForOrder = async (req, res, next) => {
   try {
@@ -51,16 +52,18 @@ const create = async (req, res, next) => {
         [orgId, orderId, amount, method, note, req.user.id]
       );
 
+      // Payable respects refunds: net_payable = total − refunded_total (INV-1).
+      const { refundedTotal } = await orderFinance.getOrderReturnSummary(client, orderId);
+      const netPayable = Math.max(0, parseFloat(so.total) - refundedTotal);
       const newAmountPaid = parseFloat(so.amount_paid) + parseFloat(amount);
-      const orderTotal = parseFloat(so.total);
 
-      if (newAmountPaid > orderTotal + 0.01) {
-        const remaining = (orderTotal - parseFloat(so.amount_paid)).toFixed(2);
-        const err = new Error(`Payment exceeds order total. Remaining balance: ${remaining}`);
+      if (newAmountPaid > netPayable + 0.01) {
+        const remaining = Math.max(0, netPayable - parseFloat(so.amount_paid)).toFixed(2);
+        const err = new Error(`Payment exceeds the payable balance. Remaining balance: ${remaining}`);
         err.isAppError = true; err.statusCode = 422; err.errorCode = 'OVERPAYMENT'; throw err;
       }
 
-      const newStatus = newAmountPaid >= orderTotal - 0.01 ? 'paid' : 'partially_paid';
+      const newStatus = newAmountPaid >= netPayable - 0.01 ? 'paid' : 'partially_paid';
       await client.query(
         `UPDATE sales_orders SET amount_paid = $1, status = $2, updated_at = NOW() WHERE id = $3`,
         [newAmountPaid, newStatus, orderId]

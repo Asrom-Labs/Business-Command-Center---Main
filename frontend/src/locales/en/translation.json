@@ -452,6 +452,8 @@
     "subtotal": "Subtotal",
     "total": "Total",
     "amountPaid": "Amount Paid",
+    "refunded": "Refunded",
+    "creditOwed": "Overpaid — {{amount}} added to customer credit",
     "remaining": "Remaining",
     "paymentSummary": "Payment Summary",
     "paymentsWillAppearHere": "Payment recording available in the payments section.",

@@ -13,10 +13,12 @@ import { useOrg } from '@/hooks/useOrg';
 import { formatCurrency, formatDate, getErrorMessage } from '@/lib/utils';
 
 function derivePaymentStatus(order) {
-  const total = parseFloat(order.total || '0');
   const paid = parseFloat(order.amount_paid || '0');
-  const remaining = total - paid;
-  if (remaining <= 0) return 'paid';
+  // NET remaining from the backend (respects refunds); fall back to total only if absent.
+  const remaining = order.remaining != null
+    ? parseFloat(order.remaining)
+    : parseFloat(order.total || '0') - paid;
+  if (remaining <= 0.005) return 'paid';
   if (paid > 0) return 'partial';
   return 'unpaid';
 }
@@ -101,10 +103,13 @@ export default function PaymentsPage() {
       key: 'remaining',
       header: t('payments.columns.remaining'),
       render: (row) => {
-        const remaining = parseFloat(row.total || '0') - parseFloat(row.amount_paid || '0');
+        // NET remaining from the backend (respects refunds), already floored at 0.
+        const remaining = row.remaining != null
+          ? parseFloat(row.remaining)
+          : Math.max(0, parseFloat(row.total || '0') - parseFloat(row.amount_paid || '0'));
         return (
           <span className={remaining > 0 ? 'text-destructive font-medium' : 'text-muted-foreground'}>
-            {formatCurrency(remaining < 0 ? 0 : remaining, currency)}
+            {formatCurrency(remaining, currency)}
           </span>
         );
       },

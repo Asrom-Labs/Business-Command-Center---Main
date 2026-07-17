@@ -16,9 +16,16 @@
  *     cancelled      → []
  *   ('paid' and 'partially_paid' are set exclusively by the payments system.)
  *
- *   payments.controller.create: blocks payment only when status === 'cancelled'
- *   (an OVERPAYMENT guard additionally prevents paying more than the total, so a
- *    fully-paid order — amount_paid >= total — can take no further payment).
+ *   payments.controller.create: blocks payment when status === 'cancelled', and the
+ *   OVERPAYMENT guard prevents paying more than NET payable (total − refunded_total).
+ *
+ *   updateStatus (W5.5-P2.1, INV-4): a forward fulfilment transition
+ *   (processing/shipped/delivered) is refused when the order is FULLY returned.
+ *   A partial return does NOT block advancement.
+ *
+ * The refund-aware figures (remaining, net_payable, fully_returned, has_returnable)
+ * are computed by the backend (order-finance.service.js) and read off the order
+ * payload here — the frontend never computes payable or return status itself.
  */
 
 // Fulfillment transitions the backend permits from each status (cancel handled separately).
@@ -34,21 +41,25 @@ const VALID_TRANSITIONS = {
 
 export function getAllowedSalesOrderActions(order) {
   const status = order?.status;
-  const total = parseFloat(order?.total ?? 0);
-  const amountPaid = parseFloat(order?.amount_paid ?? 0);
-  const remaining = total - amountPaid;
+  // NET remaining from the backend payload; fall back to net_payable/total only if absent.
+  const remaining = order?.remaining != null
+    ? parseFloat(order.remaining)
+    : Math.max(0, parseFloat(order?.net_payable ?? order?.total ?? 0) - parseFloat(order?.amount_paid ?? 0));
+  const fullyReturned = order?.fully_returned === true;
+  // Default true when the field is absent so we never hide an allowed action on a stale payload.
+  const hasReturnable = order?.has_returnable !== false;
 
   const transitions = VALID_TRANSITIONS[status] ?? [];
 
   return {
-    // Non-cancel fulfillment transitions (e.g. processing, shipped, delivered).
-    canTransitionTo: transitions.filter((s) => s !== 'cancelled'),
-    // Cancel is allowed only where the backend transition map permits it.
+    // Non-cancel fulfilment transitions — none once the order is fully returned (INV-4).
+    canTransitionTo: fullyReturned ? [] : transitions.filter((s) => s !== 'cancelled'),
+    // Cancel is allowed wherever the backend transition map permits it (never blocked by returns).
     canCancel: transitions.includes('cancelled'),
-    // Payment allowed unless cancelled, and only while a balance remains
-    // (mirrors the backend cancelled block + overpayment guard).
+    // Payment allowed unless cancelled, and only while a NET balance remains
+    // (mirrors the backend cancelled block + net-payable overpayment guard).
     canRecordPayment: status !== 'cancelled' && remaining > 0.005,
-    // Returns are created only against delivered orders (mirrors the detail UI rule).
-    canCreateReturn: status === 'delivered',
+    // Returns: only on delivered orders that still have something returnable (INV-5).
+    canCreateReturn: status === 'delivered' && hasReturnable,
   };
 }

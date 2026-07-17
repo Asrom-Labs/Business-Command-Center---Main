@@ -452,6 +452,8 @@
     "subtotal": "المجموع الفرعي",
     "total": "الإجمالي",
     "amountPaid": "المبلغ المدفوع",
+    "refunded": "المسترد",
+    "creditOwed": "دفعة زائدة — تمت إضافة {{amount}} إلى رصيد المتجر",
     "remaining": "المتبقي",
     "paymentSummary": "ملخص الدفع",
     "paymentsWillAppearHere": "تسجيل المدفوعات متاح في قسم المدفوعات.",

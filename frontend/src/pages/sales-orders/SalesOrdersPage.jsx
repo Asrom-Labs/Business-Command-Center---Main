@@ -654,14 +654,22 @@ export default function SalesOrdersPage() {
                   </div>
                 )}
 
-                {/* Payment summary */}
+                {/* Payment summary — refund-aware; net figures come from the backend (W5.5-P2.1) */}
                 <div className="border-t pt-4">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide mb-3">{t('salesOrders.paymentSummary')}</p>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <div>
                       <p className="text-xs text-muted-foreground">{t('salesOrders.total')}</p>
                       <p className="text-sm font-semibold mt-1 tabular-nums">{formatCurrency(parseFloat(selectedSO.total), currency)}</p>
                     </div>
+                    {parseFloat(selectedSO.refunded_total ?? 0) > 0 && (
+                      <div>
+                        <p className="text-xs text-muted-foreground">{t('salesOrders.refunded')}</p>
+                        <p className="text-sm font-semibold mt-1 tabular-nums text-amber-600 dark:text-amber-400">
+                          -{formatCurrency(parseFloat(selectedSO.refunded_total), currency)}
+                        </p>
+                      </div>
+                    )}
                     <div>
                       <p className="text-xs text-muted-foreground">{t('salesOrders.amountPaid')}</p>
                       <p className="text-sm font-semibold mt-1 tabular-nums text-green-600 dark:text-green-400">
@@ -671,15 +679,18 @@ export default function SalesOrdersPage() {
                     <div>
                       <p className="text-xs text-muted-foreground">{t('salesOrders.remaining')}</p>
                       <p className={`text-sm font-semibold mt-1 tabular-nums ${
-                        parseFloat(selectedSO.total) - parseFloat(selectedSO.amount_paid) > 0
-                          ? 'text-destructive'
-                          : 'text-foreground'
+                        parseFloat(selectedSO.remaining ?? 0) > 0 ? 'text-destructive' : 'text-foreground'
                       }`}>
-                        {formatCurrency(parseFloat(selectedSO.total) - parseFloat(selectedSO.amount_paid), currency)}
+                        {formatCurrency(parseFloat(selectedSO.remaining ?? 0), currency)}
                       </p>
                     </div>
                   </div>
-                  {parseFloat(selectedSO.amount_paid) < parseFloat(selectedSO.total) && (
+                  {parseFloat(selectedSO.credit_owed ?? 0) > 0 && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-3">
+                      {t('salesOrders.creditOwed', { amount: formatCurrency(parseFloat(selectedSO.credit_owed), currency) })}
+                    </p>
+                  )}
+                  {parseFloat(selectedSO.remaining ?? 0) > 0 && (
                     <p className="text-xs text-muted-foreground mt-3 italic">{t('salesOrders.paymentsWillAppearHere')}</p>
                   )}
                 </div>
