@@ -650,6 +650,7 @@
     "quantityReturnedLabel": "كمية الإرجاع",
     "refundAmountLabel": "قيمة الاسترداد",
     "orderedQty": "الكمية المطلوبة: {{qty}}",
+    "returnableQty": "القابل للإرجاع: {{qty}}",
     "noItemsError": "أدخل كمية إرجاع أكبر من الصفر لعنصر واحد على الأقل",
     "createSuccess": "تم معالجة المرتجع — تم استعادة المخزون",
     "createReturnFor": "إنشاء مرتجع"

@@ -222,7 +222,8 @@ const getOne = async (req, res, next) => {
     }
 
     const itemsRes = await pool.query(
-      `SELECT soi.*, p.name AS product_name, pv.name AS variant_name
+      `SELECT soi.*, p.name AS product_name, pv.name AS variant_name,
+              COALESCE((SELECT SUM(ri.quantity_returned) FROM return_items ri WHERE ri.sales_order_item_id = soi.id), 0)::INTEGER AS already_returned
        FROM sales_order_items soi
        JOIN products p ON p.id = soi.product_id
        LEFT JOIN product_variants pv ON pv.id = soi.variant_id

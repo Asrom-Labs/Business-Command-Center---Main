@@ -650,6 +650,7 @@
     "quantityReturnedLabel": "Return Qty",
     "refundAmountLabel": "Refund Amount",
     "orderedQty": "Ordered: {{qty}}",
+    "returnableQty": "Returnable: {{qty}}",
     "noItemsError": "Enter a return quantity greater than 0 for at least one item",
     "createSuccess": "Return processed — stock has been restored",
     "createReturnFor": "Create Return"

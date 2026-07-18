@@ -32,7 +32,7 @@ const getStock = async (req, res, next) => {
          FROM stock_ledger sl
          JOIN products p ON p.id = sl.product_id
          ${w}
-         GROUP BY sl.product_id, sl.variant_id, sl.location_id
+         GROUP BY sl.product_id, sl.variant_id, sl.location_id, p.low_stock_threshold
          ${havingClause}
        ) AS t`,
       vals

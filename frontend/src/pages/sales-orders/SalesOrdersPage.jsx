@@ -891,22 +891,41 @@ export default function SalesOrdersPage() {
             <div>
               <Label>{t('returns.returnItemsLabel')}</Label>
               <div className="mt-2 divide-y divide-border rounded-md border">
-                {returnItems.map((ri, index) => (
-                  <div key={ri.item.id} className="flex items-center gap-3 p-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{ri.item.product_name}</p>
-                      <p className="text-xs text-muted-foreground">{t('returns.orderedQty', { qty: ri.item.quantity })}</p>
+                {returnItems.map((ri, index) => {
+                  const ordered = parseInt(ri.item.quantity, 10);
+                  const alreadyReturned = parseInt(ri.item.already_returned ?? 0, 10);
+                  const returnable = Math.max(0, ordered - alreadyReturned);   // S3: ordered − already returned
+                  const perUnitNet = (parseFloat(ri.item.price) * ordered - parseFloat(ri.item.discount || 0)) / ordered;
+                  return (
+                    <div key={ri.item.id} className="flex items-center gap-3 p-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{ri.item.product_name}</p>
+                        <p className="text-xs text-muted-foreground">{t('returns.returnableQty', { qty: returnable })}</p>
+                      </div>
+                      <div className="w-24 flex-shrink-0">
+                        <Label className="text-xs text-muted-foreground mb-1 block">{t('returns.quantityReturnedLabel')}</Label>
+                        <Input
+                          type="number" min="0" max={returnable} value={ri.qty}
+                          disabled={returnable === 0}
+                          onChange={(e) => {
+                            const q = e.target.value;
+                            const nq = parseInt(q, 10);
+                            // Default the refund to the returned quantity's value (editable). Stops
+                            // browser returns from silently refunding 0 (the W5.5-P2.1b seam).
+                            const refund = (q === '' || isNaN(nq) || nq <= 0) ? '' : String(roundMoney(perUnitNet * nq));
+                            const u = [...returnItems];
+                            u[index] = { ...ri, qty: q, refund };
+                            setReturnItems(u);
+                          }}
+                        />
+                      </div>
+                      <div className="w-28 flex-shrink-0">
+                        <Label className="text-xs text-muted-foreground mb-1 block">{t('returns.refundAmountLabel')}</Label>
+                        <Input type="number" min="0" step="0.01" value={ri.refund} onChange={(e) => { const u = [...returnItems]; u[index] = { ...ri, refund: e.target.value }; setReturnItems(u); }} />
+                      </div>
                     </div>
-                    <div className="w-24 flex-shrink-0">
-                      <Label className="text-xs text-muted-foreground mb-1 block">{t('returns.quantityReturnedLabel')}</Label>
-                      <Input type="number" min="0" max={ri.item.quantity} value={ri.qty} onChange={(e) => { const u = [...returnItems]; u[index] = { ...ri, qty: e.target.value }; setReturnItems(u); }} />
-                    </div>
-                    <div className="w-28 flex-shrink-0">
-                      <Label className="text-xs text-muted-foreground mb-1 block">{t('returns.refundAmountLabel')}</Label>
-                      <Input type="number" min="0" step="0.01" value={ri.refund} onChange={(e) => { const u = [...returnItems]; u[index] = { ...ri, refund: e.target.value }; setReturnItems(u); }} />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
             <DialogFooter>
